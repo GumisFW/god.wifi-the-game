@@ -113,7 +113,7 @@
       pointer-events: all;
     }
 
-    /* coming soon pixelated */
+    /* sequence screen */
     #coming-soon {
       position: fixed;
       inset: 0;
@@ -130,36 +130,54 @@
     }
 
     .pixel-text {
-      font-size: clamp(2rem, 8vw, 6rem);
+      font-size: clamp(2rem, 8vw, 5.5rem);
       letter-spacing: 0.15em;
       text-transform: uppercase;
       color: #fff;
-      image-rendering: pixelated;
-      text-shadow:
-        3px 3px 0 #555,
-        6px 6px 0 #333,
-        9px 9px 0 #222;
-      animation: pixelGlitch 0.8s steps(1) infinite;
       font-family: 'Share Tech Mono', monospace;
       text-align: center;
       padding: 0 20px;
+      position: relative;
+      z-index: 2;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    .pixel-text.visible {
+      opacity: 1;
+    }
+
+    .pixel-text.glitch {
+      animation: pixelGlitch 0.8s steps(1) infinite;
+      text-shadow: 3px 3px 0 #555, 6px 6px 0 #333;
     }
 
     @keyframes pixelGlitch {
       0%   { text-shadow: 3px 3px 0 #555, 6px 6px 0 #333; filter: blur(0px); transform: translate(0,0); }
       10%  { text-shadow: -3px 2px 0 #888, 5px -4px 0 #444; filter: blur(0.5px); transform: translate(2px,-1px); }
       20%  { text-shadow: 4px -3px 0 #333, -2px 5px 0 #666; filter: blur(0px); transform: translate(-1px,0); }
-      30%  { text-shadow: 3px 3px 0 #555, 6px 6px 0 #333; filter: blur(0px); transform: translate(0,0); }
       60%  { text-shadow: 3px 3px 0 #555, 6px 6px 0 #333; filter: blur(0px); transform: translate(0,0); }
       61%  { text-shadow: -4px 0px 0 #aaa, 3px 3px 0 #222; filter: blur(1px); transform: translate(3px,0); }
-      62%  { text-shadow: 3px 3px 0 #555, 6px 6px 0 #333; filter: blur(0px); transform: translate(0,0); }
-      90%  { text-shadow: 3px 3px 0 #555, 6px 6px 0 #333; filter: blur(0px); transform: translate(0,0); }
       91%  { text-shadow: 5px -2px 0 #777, -3px 4px 0 #111; filter: blur(0.5px); transform: translate(-2px,1px); }
-      92%  { text-shadow: 3px 3px 0 #555, 6px 6px 0 #333; filter: blur(0px); transform: translate(0,0); }
       100% { text-shadow: 3px 3px 0 #555, 6px 6px 0 #333; filter: blur(0px); transform: translate(0,0); }
     }
 
-    /* scanlines effect on coming soon */
+    /* flash */
+    #flash {
+      position: fixed;
+      inset: 0;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 30;
+      transition: opacity 0.05s ease;
+    }
+
+    #flash.on {
+      opacity: 1;
+    }
+
+    /* scanlines */
     #coming-soon::before {
       content: '';
       position: fixed;
@@ -168,16 +186,11 @@
         0deg,
         transparent,
         transparent 2px,
-        rgba(0,0,0,0.3) 2px,
-        rgba(0,0,0,0.3) 4px
+        rgba(0,0,0,0.25) 2px,
+        rgba(0,0,0,0.25) 4px
       );
       pointer-events: none;
       z-index: 1;
-    }
-
-    .pixel-text {
-      position: relative;
-      z-index: 2;
     }
   </style>
 </head>
@@ -194,8 +207,10 @@
   <div id="overlay"></div>
 
   <div id="coming-soon">
-    <div class="pixel-text">GDZIE JESTEŚ...</div>
+    <div class="pixel-text" id="seq-text"></div>
   </div>
+
+  <div id="flash"></div>
 
   <script>
     const input = document.getElementById('searchInput');
@@ -226,18 +241,73 @@
       }
     }
 
+    const seqText = document.getElementById('seq-text');
+    const flash = document.getElementById('flash');
+
+    // steps: [text, glitch?, duration_before_next]
+    const steps = [
+      { text: 'CZEGO TU SZUKASZ?', glitch: false },
+      { text: '...',               glitch: false },
+      { text: 'GDZIE JESTEŚ?',     glitch: false },
+      { text: '...',               glitch: false },
+      { text: 'ODBIERZ',           glitch: false },
+      { text: '...',               glitch: false },
+      // then flash → COMING SOON...
+    ];
+
+    function showStep(index, cb) {
+      seqText.classList.remove('visible', 'glitch');
+      seqText.textContent = steps[index].text;
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          seqText.classList.add('visible');
+          if (steps[index].glitch) seqText.classList.add('glitch');
+        });
+      });
+
+      setTimeout(() => {
+        seqText.classList.remove('visible');
+        setTimeout(cb, 500); // brief pause between
+      }, 4500);
+    }
+
+    function runFlash(cb) {
+      flash.classList.add('on');
+      setTimeout(() => {
+        flash.classList.remove('on');
+        setTimeout(cb, 100);
+      }, 120);
+    }
+
     function triggerSequence() {
-      // fade out main
       main.style.opacity = '0';
       main.style.pointerEvents = 'none';
 
-      // fade in black overlay
       overlay.classList.add('fade-in');
 
-      // after 1 second show coming soon
       setTimeout(() => {
         comingSoon.classList.add('show');
-      }, 1000);
+
+        let i = 0;
+        function next() {
+          if (i < steps.length) {
+            showStep(i, () => { i++; next(); });
+          } else {
+            // flash then COMING SOON...
+            runFlash(() => {
+              seqText.classList.remove('visible', 'glitch');
+              seqText.textContent = 'COMING SOON...';
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  seqText.classList.add('visible', 'glitch');
+                });
+              });
+            });
+          }
+        }
+        next();
+      }, 800);
     }
   </script>
 </body>
