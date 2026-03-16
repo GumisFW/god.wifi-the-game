@@ -79,56 +79,20 @@ const bgImg = new Image(); bgImg.src = 'ggodwifipingwintlo.png';
 //  THEMES  — platform style + pixel props
 // ═══════════════════════════════════
 const THEMES = [
-  {
-    id:'street', name:'STREET', floorStart:0,
-    bg0:'#080808', bg1:'#111',
-    // asphalt platform
-    platDraw: drawPlatStreet,
-    particleColor:'#ff8800',
-    stars:15,
-  },
-  {
-    id:'music', name:'STUDIO', floorStart:18,
-    bg0:'#080614', bg1:'#100a20',
-    platDraw: drawPlatMusic,
-    particleColor:'#b388ff',
-    stars:50,
-  },
-  {
-    id:'bmx', name:'BMX PARK', floorStart:38,
-    bg0:'#0a0600', bg1:'#180d00',
-    platDraw: drawPlatBmx,
-    particleColor:'#ff6b00',
-    stars:20,
-  },
-  {
-    id:'photo', name:'PHOTOSHOOT', floorStart:60,
-    bg0:'#050505', bg1:'#0d0d0d',
-    platDraw: drawPlatPhoto,
-    particleColor:'#ff4dac',
-    stars:80,
-  },
-  {
-    id:'clip', name:'KLIP', floorStart:85,
-    bg0:'#000a06', bg1:'#001508',
-    platDraw: drawPlatClip,
-    particleColor:'#00e676',
-    stars:30,
-  },
-  {
-    id:'stage', name:'STAGE', floorStart:115,
-    bg0:'#0f0000', bg1:'#1a0000',
-    platDraw: drawPlatStage,
-    particleColor:'#ff1744',
-    stars:100,
-  },
-  {
-    id:'peak', name:'GOD MODE', floorStart:150,
-    bg0:'#0c0800', bg1:'#1a1000',
-    platDraw: drawPlatPeak,
-    particleColor:'#ffd700',
-    stars:140,
-  },
+  { id:'street',  name:'STREET',     floorStart:0,
+    bg0:'#080808', bg1:'#111',        platDraw:drawPlatStreet, particleColor:'#ff8800', stars:15 },
+  { id:'music',   name:'STUDIO',     floorStart:100,
+    bg0:'#080614', bg1:'#100a20',     platDraw:drawPlatMusic,  particleColor:'#b388ff', stars:50 },
+  { id:'bmx',     name:'BMX PARK',   floorStart:125,
+    bg0:'#0a0600', bg1:'#180d00',     platDraw:drawPlatBmx,   particleColor:'#ff6b00', stars:20 },
+  { id:'photo',   name:'PHOTOSHOOT', floorStart:150,
+    bg0:'#050505', bg1:'#0d0d0d',     platDraw:drawPlatPhoto,  particleColor:'#ff4dac', stars:80 },
+  { id:'clip',    name:'KLIP',       floorStart:175,
+    bg0:'#000a06', bg1:'#001508',     platDraw:drawPlatClip,   particleColor:'#00e676', stars:30 },
+  { id:'stage',   name:'STAGE',      floorStart:200,
+    bg0:'#0f0000', bg1:'#1a0000',     platDraw:drawPlatStage,  particleColor:'#ff1744', stars:100 },
+  { id:'peak',    name:'GOD MODE',   floorStart:225,
+    bg0:'#0c0800', bg1:'#1a1000',     platDraw:drawPlatPeak,   particleColor:'#ffd700', stars:140 },
 ];
 
 function getTheme(f){
@@ -414,55 +378,60 @@ function makePlat(y, ground=false) {
   return { x, y, w, h:ground?14:PLAT_H(), ground, seed:platSeed };
 }
 
+let winPlatformY = 0;
+let winBtnListened = false;
+
 let platforms = [];
 function buildPlatforms() {
-  platforms = [];
-  platSeed = 1;
+  platforms = []; platSeed = 1;
   platforms.push(makePlat(H()-18, true));
-  let y = H()-18-GAP_Y();
-  while(y > -H()*6) {
-    platforms.push(makePlat(y));
-    y -= GAP_Y()*(0.72+Math.random()*0.55);
+  const baseGap = GAP_Y();
+  let y = H()-18;
+  for(let i=1; i<=WIN_FLOOR; i++){
+    y -= baseGap * (0.75 + Math.random()*0.5);
+    if(i === WIN_FLOOR){
+      const wp = { x:0, y, w:W(), h:PLAT_H()*2, ground:false, seed:9999, isWin:true };
+      platforms.push(wp);
+      winPlatformY = y;
+    } else {
+      platforms.push(makePlat(y));
+    }
   }
 }
 
 // ═══════════════════════════════════
-//  PLATFORM RENDERER  (cached to offscreen canvas)
+//  PLATFORM RENDERER
 // ═══════════════════════════════════
 const platCache = new Map();
-
-function getPlatCanvas(plat, theme) {
-  const key = `${theme.id}_${Math.round(plat.w)}_${plat.seed}`;
-  if(platCache.has(key)) return platCache.get(key);
-
-  const oc = document.createElement('canvas');
-  oc.width  = Math.ceil(plat.w);
-  oc.height = plat.h + 20; // extra room for props above
-  const oc_ctx = ctx; // we'll swap below
-
-  // use offscreen 2d context
-  const c = oc.getContext('2d');
-  const prevCtx = ctx;
-
-  // temporarily replace ctx calls — we draw directly to c
-  // We'll draw into c by translating
-  c.save();
-  c.translate(0, 20); // 20px headroom for props
-  theme.platDraw.call(null, Math.ceil(plat.w), plat.h, plat.seed);
-  // above call uses outer ctx — need to use c instead
-  c.restore();
-
-  platCache.set(key, oc);
-  return oc;
-}
 
 function drawPlatform(plat, theme) {
   const sy = Math.round(plat.y - cameraY);
   if(sy > H()+40 || sy < -60) return;
-
   ctx.save();
   ctx.translate(Math.round(plat.x), sy);
-  theme.platDraw(Math.round(plat.w), plat.h, plat.seed);
+
+  if(plat.isWin){
+    const w=Math.round(plat.w), h=plat.h;
+    ctx.fillStyle='#2a1f00'; ctx.fillRect(0,0,w,h);
+    const t=Date.now()*0.003;
+    for(let x2=0;x2<w;x2+=6){
+      const hue=((x2/w)*360+t*50)%360;
+      ctx.fillStyle=`hsl(${hue},100%,50%)`;
+      ctx.fillRect(x2,0,5,4);
+    }
+    ctx.fillStyle='#ffd700'; ctx.fillRect(0,4,w,h-4);
+    ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.fillRect(0,4,w,3);
+    ctx.fillStyle='#000';
+    ctx.font=`${Math.max(8,Math.floor(h*0.55))}px 'Press Start 2P'`;
+    ctx.textBaseline='middle'; ctx.textAlign='center';
+    ctx.fillText('★ GOD MODE ★', w/2, h*0.6);
+    ctx.textAlign='left'; ctx.textBaseline='top';
+  } else if(plat.ground){
+    ctx.fillStyle='#1a1a1a'; ctx.fillRect(0,0,Math.round(plat.w),plat.h);
+    ctx.fillStyle='#333'; ctx.fillRect(0,0,Math.round(plat.w),3);
+  } else {
+    theme.platDraw(Math.round(plat.w), plat.h, plat.seed);
+  }
   ctx.restore();
 }
 
@@ -534,10 +503,10 @@ function drawPlayer(p) {
   });
   ctx.globalAlpha=1;
 
-  // combo halo
-  if(combo>=5){
-    ctx.globalAlpha=0.25+Math.sin(Date.now()*0.009)*0.15;
-    ctx.fillStyle=combo>=12?'#ffd700':combo>=8?'#ff8800':'#ffff44';
+  // combo halo — NO RED, only gold/yellow for high combo
+  if(combo>=8){
+    ctx.globalAlpha=0.2+Math.sin(Date.now()*0.009)*0.1;
+    ctx.fillStyle=combo>=15?'#ffd700':'#ffcc00';
     ctx.fillRect(px-4, py-6, W_+8, H_+10);
     ctx.globalAlpha=1;
   }
@@ -550,18 +519,14 @@ function drawPlayer(p) {
   }
 
   // ── HAIR (long, dark, flowing) ──
-  // back hair (behind body)
   const hairW = Math.round(W_*0.55);
   const hairX = f>0 ? px+Math.round(W_*0.15) : px+Math.round(W_*0.3);
   ctx.fillStyle='#1a0e06';
   ctx.fillRect(hairX, py, hairW, Math.round(H_*0.72));
-  // hair strands
   ctx.fillStyle='#2a1810';
   for(let i=0;i<4;i++){
-    ctx.fillRect(hairX + i*Math.round(hairW/4), py+Math.round(H_*0.3),
-                 Math.round(hairW/5), Math.round(H_*0.45));
+    ctx.fillRect(hairX + i*Math.round(hairW/4), py+Math.round(H_*0.3), Math.round(hairW/5), Math.round(H_*0.45));
   }
-  // wild ends
   ctx.fillStyle='#1a0e06';
   const tailSide = f>0 ? px+Math.round(W_*0.6) : px+Math.round(W_*0.05);
   for(let i=0;i<3;i++){
@@ -570,65 +535,77 @@ function drawPlayer(p) {
 
   // ── HEAD ──
   const hx=Math.round(W_*0.22), hSz=Math.round(W_*0.55);
-  ctx.fillStyle='#c8956a'; // skin tone
+  ctx.fillStyle='#c8956a';
   ctx.fillRect(px+hx, py+2, hSz, Math.round(H_*0.28));
-
-  // top hair
   ctx.fillStyle='#1a0e06';
   ctx.fillRect(px+hx-2, py, hSz+4, Math.round(H_*0.12));
   ctx.fillRect(px+hx, py, hSz, Math.round(H_*0.1));
 
   // ── SUNGLASSES ──
   const gy = py + Math.round(H_*0.1);
-  const gx1 = f>0 ? px+Math.round(W_*0.24) : px+Math.round(W_*0.24);
+  const gx1 = px+Math.round(W_*0.24);
   ctx.fillStyle='#000';
   ctx.fillRect(gx1, gy, Math.round(W_*0.22), Math.round(H_*0.1));
   ctx.fillRect(gx1+Math.round(W_*0.28), gy, Math.round(W_*0.22), Math.round(H_*0.1));
-  // bridge
   ctx.fillStyle='#333';
   ctx.fillRect(gx1+Math.round(W_*0.22), gy+2, Math.round(W_*0.06), 3);
-  // lens shine
-  ctx.fillStyle='#fff';
+  ctx.fillStyle='rgba(255,255,255,0.6)';
   ctx.fillRect(gx1+2, gy+2, 3, 3);
 
-  // mouth (open/singing)
+  // mouth
   ctx.fillStyle='#8b3a3a';
-  const mx = px + Math.round(W_*0.38);
-  ctx.fillRect(mx, py+Math.round(H_*0.22), Math.round(W_*0.22), Math.round(H_*0.06));
+  ctx.fillRect(px+Math.round(W_*0.38), py+Math.round(H_*0.22), Math.round(W_*0.22), Math.round(H_*0.06));
 
-  // ── BODY / HOODIE dark ──
-  ctx.fillStyle='#1a1a24';
+  // ── BODY / T-SHIRT black ──
+  ctx.fillStyle='#111';
   ctx.fillRect(px+Math.round(W_*0.18), py+Math.round(H_*0.3), Math.round(W_*0.64), Math.round(H_*0.38));
 
-  // hoodie detail / logo area
-  ctx.fillStyle='#111';
-  ctx.fillRect(px+Math.round(W_*0.35), py+Math.round(H_*0.38), Math.round(W_*0.3), Math.round(H_*0.18));
-  // small god.wifi emblem pixel
-  ctx.fillStyle='#e00';
-  ctx.fillRect(px+Math.round(W_*0.44), py+Math.round(H_*0.42), 4, 4);
-  ctx.fillRect(px+Math.round(W_*0.44)+2, py+Math.round(H_*0.42)-2, 2, 2);
+  // FREE WIFI text on shirt — pixel letters
+  const tx0 = px + Math.round(W_*0.2);
+  const ty0 = py + Math.round(H_*0.38);
+  const tScale = Math.max(1, Math.floor(W_/60));
+  ctx.fillStyle = '#fff';
+  // "FREE" — simplified pixel font row 1
+  const freePixels = [
+    [1,1,1,0,1,0,0,0,1,1,1,0,1,1,1],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0],
+    [1,1,0,0,1,0,0,0,1,1,1,0,1,1,0],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0],
+    [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
+  ];
+  freePixels.forEach((row,ri)=>{
+    row.forEach((bit,ci)=>{
+      if(bit) ctx.fillRect(tx0+ci*tScale, ty0+ri*tScale, tScale, tScale);
+    });
+  });
+  // "WIFI" row 2
+  const ty1 = ty0 + 6*tScale;
+  const wifiPixels = [
+    [1,0,1,0,1,1,1,0,1,1,1,0,1,0,1],
+    [1,0,1,0,1,0,1,0,0,1,0,0,1,0,1],
+    [1,0,1,0,1,1,1,0,0,1,0,0,1,0,1],
+    [1,1,1,0,0,1,0,0,0,1,0,0,1,0,1],
+    [0,1,0,0,0,1,0,0,0,1,0,0,0,1,0],
+  ];
+  wifiPixels.forEach((row,ri)=>{
+    row.forEach((bit,ci)=>{
+      if(bit) ctx.fillRect(tx0+ci*tScale, ty1+ri*tScale, tScale, tScale);
+    });
+  });
 
-  // ── BELT / waistband ──
-  ctx.fillStyle='#888';
+  // ── BELT ──
+  ctx.fillStyle='#555';
   ctx.fillRect(px+Math.round(W_*0.18), py+Math.round(H_*0.66), Math.round(W_*0.64), Math.round(H_*0.05));
-  // belt text pixels (like logo on image)
-  ctx.fillStyle='#fff';
-  for(let bx=0;bx<5;bx++){
-    ctx.fillRect(px+Math.round(W_*0.22)+bx*6, py+Math.round(H_*0.67), 4, 3);
-  }
 
   // ── ARMS ──
-  ctx.fillStyle='#1a1a24';
   if(!p.onGround){
-    // arms up while jumping
-    R(0, Math.round(H_*0.3), Math.round(W_*0.18), Math.round(H_*0.3),'#1a1a24');
-    R(Math.round(W_*0.82), Math.round(H_*0.3), Math.round(W_*0.18), Math.round(H_*0.3),'#1a1a24');
-    // fists
+    R(0, Math.round(H_*0.3), Math.round(W_*0.18), Math.round(H_*0.3),'#111');
+    R(Math.round(W_*0.82), Math.round(H_*0.3), Math.round(W_*0.18), Math.round(H_*0.3),'#111');
     R(0, Math.round(H_*0.28), Math.round(W_*0.18), Math.round(H_*0.1),'#c8956a');
     R(Math.round(W_*0.82), Math.round(H_*0.28), Math.round(W_*0.18), Math.round(H_*0.1),'#c8956a');
   } else {
-    R(0, Math.round(H_*0.34), Math.round(W_*0.18), Math.round(H_*0.3),'#1a1a24');
-    R(Math.round(W_*0.82), Math.round(H_*0.34), Math.round(W_*0.18), Math.round(H_*0.3),'#1a1a24');
+    R(0, Math.round(H_*0.34), Math.round(W_*0.18), Math.round(H_*0.3),'#111');
+    R(Math.round(W_*0.82), Math.round(H_*0.34), Math.round(W_*0.18), Math.round(H_*0.3),'#111');
     R(0, Math.round(H_*0.56), Math.round(W_*0.18), Math.round(H_*0.1),'#c8956a');
     R(Math.round(W_*0.82), Math.round(H_*0.56), Math.round(W_*0.18), Math.round(H_*0.1),'#c8956a');
   }
@@ -637,18 +614,17 @@ function drawPlayer(p) {
   ctx.fillStyle='#1c1c28';
   ctx.fillRect(px+Math.round(W_*0.18), py+Math.round(H_*0.68), Math.round(W_*0.64), Math.round(H_*0.25));
 
-  // ── LEGS ANIMATION ──
-  const leg = p.onGround ? Math.floor(Date.now()/130)%2 : 1;
-  ctx.fillStyle='#14141e';
+  // ── LEGS ──
+  const leg = p.onGround ? Math.floor(Date.now()/150)%2 : 1;
   if(leg===0){
-    R(Math.round(W_*0.2), Math.round(H_*0.82), Math.round(W_*0.22), Math.round(H_*0.18),'#14141e');
+    R(Math.round(W_*0.2),  Math.round(H_*0.82), Math.round(W_*0.22), Math.round(H_*0.18),'#14141e');
     R(Math.round(W_*0.52), Math.round(H_*0.78), Math.round(W_*0.22), Math.round(H_*0.22),'#14141e');
   } else {
-    R(Math.round(W_*0.2), Math.round(H_*0.78), Math.round(W_*0.22), Math.round(H_*0.22),'#14141e');
+    R(Math.round(W_*0.2),  Math.round(H_*0.78), Math.round(W_*0.22), Math.round(H_*0.22),'#14141e');
     R(Math.round(W_*0.52), Math.round(H_*0.82), Math.round(W_*0.22), Math.round(H_*0.18),'#14141e');
   }
 
-  // ── SHOES (black) ──
+  // ── SHOES ──
   R(Math.round(W_*0.16), Math.round(H_*0.92), Math.round(W_*0.3), Math.round(H_*0.08),'#111');
   R(Math.round(W_*0.5),  Math.round(H_*0.92), Math.round(W_*0.3), Math.round(H_*0.08),'#111');
 }
@@ -724,22 +700,29 @@ function drawGameOver(){
 }
 
 // ═══════════════════════════════════
-//  PHYSICS
+//  PHYSICS CONSTANTS — smooth & floaty
 // ═══════════════════════════════════
-const GRAVITY_    = ()=>H()*0.00105;
-const JUMP_POWER_ = ()=>-H()*0.021;
-const MOVE_ACC_   = ()=>W()*0.0016;
-const MAX_SPD_    = ()=>W()*0.011;
-const FRICTION_   = 0.87;
-const MAX_FALL_   = ()=>H()*0.024;
+const GRAVITY_    = ()=>H()*0.00065;   // very gentle gravity
+const JUMP_POWER_ = ()=>-H()*0.017;    // soft floaty jump
+const MOVE_ACC_   = ()=>W()*0.0009;    // slow acceleration
+const MAX_SPD_    = ()=>W()*0.007;     // capped top speed
+const FRICTION_   = 0.92;              // momentum feels heavy/smooth
+const MAX_FALL_   = ()=>H()*0.018;     // slow terminal velocity
 
 let score,floor,combo,comboTimer,highScore=0;
 let cameraY,themeFlash,lastThemeIdx;
-let isGameOver,gameRunning;
+let isGameOver,gameRunning,isWin;
+let winPhase=0, winTimer=0, shakeAmt=0;
 let jumpPressed;
 let keys={};
 let frameId;
 let player;
+
+// ── MAP: each theme zone has exactly N platforms ──
+// Floor numbers where each zone ENDS (= start of next zone)
+// Street:0-99, Studio:100-124, BMX:125-149, Photo:150-174, Klip:175-199, Stage:200-224, GodMode:225 = WIN
+const ZONE_FLOORS = [100, 125, 150, 175, 200, 225, 226]; // 226 = final platform = WIN
+const WIN_FLOOR   = 225;
 
 function createPlayer(){
   return {
@@ -751,6 +734,7 @@ function createPlayer(){
 }
 
 function physics(){
+  if(isWin) { updateWin(); return; }
   const p=player;
   const theme=getTheme(floor);
 
@@ -762,10 +746,10 @@ function physics(){
 
   const wantJump=keys['ArrowUp']||keys[' ']||keys['w']||keys['W'];
   if(wantJump&&!jumpPressed&&p.onGround){
-    const boost=Math.min(combo*0.09,1.3);
+    const boost=Math.min(combo*0.08,1.2);
     p.vy=JUMP_POWER_()*(1+boost);
     p.onGround=false; jumpPressed=true;
-    spawnParticles(p.x+p.w/2,p.y+p.h,theme.particleColor,8);
+    spawnParticles(p.x+p.w/2,p.y+p.h,theme.particleColor,6);
   }
   if(!wantJump)jumpPressed=false;
 
@@ -778,22 +762,29 @@ function physics(){
 
   for(let s=0;s<STEPS;s++){
     p.x+=svx; p.y+=svy;
+    // wrap horizontal
     if(p.x+p.w<0)p.x=W();
     if(p.x>W())p.x=-p.w;
+
+    // hard map top boundary — can't go above win platform
+    const topLimit = winPlatformY - p.h - 10;
+    if(p.y < topLimit) { p.y = topLimit; p.vy = Math.max(0, p.vy); }
 
     if(svy>=0){
       for(const plat of platforms){
         const pB=p.y+p.h, pL=p.x+4, pR=p.x+p.w-4;
         if(pR<=plat.x||pL>=plat.x+plat.w)continue;
-        if(pB>=plat.y&&pB<=plat.y+plat.h+Math.abs(svy)+3){
+        if(pB>=plat.y&&pB<=plat.y+plat.h+Math.abs(svy)+4){
           p.y=plat.y-p.h; p.vy=0; p.onGround=true;
           const pf=Math.round((-plat.y)/GAP_Y());
           if(pf>floor){
             const diff=pf-floor; floor=pf;
             score+=diff*(1+Math.floor(combo*0.5));
-            combo+=diff; comboTimer=160;
+            combo+=diff; comboTimer=170;
             if(score>highScore)highScore=score;
-            spawnParticles(p.x+p.w/2,p.y,theme.particleColor,6);
+            spawnParticles(p.x+p.w/2,p.y,theme.particleColor,5);
+            // WIN condition
+            if(floor>=WIN_FLOOR){ isWin=true; winPhase=0; winTimer=0; shakeAmt=0; return; }
           }
           break;
         }
@@ -804,20 +795,26 @@ function physics(){
 
   p.trail.push({x:p.x,y:p.y});
   if(p.trail.length>8)p.trail.shift();
-
   comboTimer>0?comboTimer--:(combo=0);
 
+  // Camera
   const targetCam=p.y-H()*0.42;
-  cameraY+=(targetCam-cameraY)*0.055;
+  cameraY+=(targetCam-cameraY)*0.05;
 
-  if(p.y-cameraY>H()+80)isGameOver=true;
+  // Death: fell below bottom boundary (ground platform + 1 screen)
+  const groundY = platforms.find(pl=>pl.ground)?.y ?? H()-18;
+  if(p.y > groundY + H()*0.6) isGameOver=true;
 
+  // Generate platforms only up to win platform
   const topY=cameraY-H()*0.6;
-  while(!platforms.length||platforms[platforms.length-1].y>topY){
-    const ly=platforms.length?platforms[platforms.length-1].y:H()-18;
-    platforms.push(makePlat(ly-GAP_Y()*(0.72+Math.random()*0.55)));
+  while(platforms[platforms.length-1].y > topY){
+    const ly=platforms[platforms.length-1].y;
+    const nextY=ly-GAP_Y()*(0.72+Math.random()*0.55);
+    // Don't generate above win platform
+    if(nextY <= winPlatformY) break;
+    platforms.push(makePlat(nextY));
   }
-  platforms=platforms.filter(pl=>pl.y-cameraY<H()+250);
+  platforms=platforms.filter(pl=>pl.y-cameraY<H()+260);
 
   const ti=THEMES.indexOf(getTheme(floor));
   if(ti!==lastThemeIdx){
@@ -828,10 +825,81 @@ function physics(){
 }
 
 // ═══════════════════════════════════
-//  LOOP
+//  WIN SEQUENCE
+// ═══════════════════════════════════
+function updateWin(){ winTimer++;
+  if(winPhase===0){ shakeAmt=10*(1-winTimer/60); if(winTimer>=60){winPhase=1;winTimer=0;shakeAmt=0;} }
+  else if(winPhase===1||winPhase===3||winPhase===5){ if(winTimer>=45){winPhase++;winTimer=0;} }
+  else if(winPhase===2||winPhase===4){ if(winTimer>=90){winPhase++;winTimer=0;} }
+}
+
+function drawWin(){
+  updateWin();
+  if(winPhase===0){
+    const sx=Math.round((Math.random()-0.5)*shakeAmt*2);
+    const sy2=Math.round((Math.random()-0.5)*shakeAmt*2);
+    ctx.save(); ctx.translate(sx,sy2);
+    const theme=getTheme(floor);
+    drawBackground(theme);
+    platforms.forEach(pl=>drawPlatform(pl,theme));
+    drawPlayer(player);
+    ctx.restore();
+    ctx.fillStyle=`rgba(255,200,0,${0.06+Math.random()*0.06})`;
+    ctx.fillRect(0,0,W(),H());
+    return;
+  }
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,W(),H());
+  if(winPhase===1||winPhase===3||winPhase===5) return;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  const fs=Math.floor(W()*0.05);
+  if(winPhase===2){
+    if(Math.floor(winTimer/8)%2===0){
+      ctx.font=`${fs}px 'Press Start 2P'`;
+      ctx.fillStyle='#fff'; ctx.shadowColor='#fff'; ctx.shadowBlur=20;
+      ctx.fillText('GRATULACJE', W()/2, H()/2);
+      ctx.shadowBlur=0;
+    }
+  }
+  if(winPhase===4){
+    ctx.font=`${Math.floor(fs*0.65)}px 'Press Start 2P'`;
+    ctx.fillStyle='#fff';
+    ctx.fillText('O TO TWOJA', W()/2, H()*0.42);
+    ctx.fillText('NAGRODA:', W()/2, H()*0.56);
+  }
+  if(winPhase===6){
+    ctx.font=`${Math.floor(fs*0.55)}px 'Press Start 2P'`;
+    ctx.fillStyle='#aaa';
+    ctx.fillText('KLIKNIJ ABY ODEBRAĆ', W()/2, H()*0.32);
+    const bw=Math.floor(W()*0.52), bh=Math.floor(H()*0.16);
+    const bx=W()/2-bw/2, by=H()*0.5-bh/2;
+    ctx.fillStyle='#fff'; ctx.fillRect(bx-4,by-4,bw+8,bh+8);
+    ctx.fillStyle='#000'; ctx.fillRect(bx,by,bw,bh);
+    ctx.fillStyle='#fff'; ctx.fillRect(bx+3,by+3,bw-6,3); ctx.fillRect(bx+3,by+3,3,bh-6);
+    if(Math.floor(Date.now()/500)%2===0){
+      ctx.font=`${Math.floor(fs*0.8)}px 'Press Start 2P'`;
+      ctx.fillStyle='#fff'; ctx.fillText('GOD.WIFI', W()/2, H()*0.5);
+    }
+    canvas.style.cursor='pointer';
+    if(!winBtnListened){
+      winBtnListened=true;
+      function doWin(){ window.open('https://godwifi.pl/','_blank'); }
+      canvas.addEventListener('click',function wc(e){
+        const r=canvas.getBoundingClientRect();
+        const cx=(e.clientX-r.left)/r.width*W(), cy=(e.clientY-r.top)/r.height*H();
+        if(cx>=bx&&cx<=bx+bw&&cy>=by&&cy<=by+bh){ doWin(); canvas.removeEventListener('click',wc); winBtnListened=false; canvas.style.cursor='default'; }
+      });
+      canvas.addEventListener('touchend',function wt(e){ e.preventDefault(); doWin(); canvas.removeEventListener('touchend',wt); winBtnListened=false; },{once:true,passive:false});
+    }
+  }
+  ctx.textAlign='left';
+}
+
+// ═══════════════════════════════════
+//  MAIN LOOP
 // ═══════════════════════════════════
 function loop(){
   frameId=requestAnimationFrame(loop);
+  if(isWin){ drawWin(); return; }
   const theme=getTheme(floor);
   drawBackground(theme);
   if(!isGameOver){
@@ -856,8 +924,9 @@ function startGame(){
   platforms=[]; particles=[];
   score=0; floor=0; combo=0; comboTimer=0;
   cameraY=0; themeFlash=0; lastThemeIdx=0;
-  isGameOver=false; gameRunning=true; jumpPressed=false;
-  platCache.clear();
+  isGameOver=false; isWin=false; winPhase=0; winTimer=0; shakeAmt=0;
+  gameRunning=true; jumpPressed=false; winBtnListened=false;
+  platCache.clear(); canvas.style.cursor='default';
   bgStars=buildStars(THEMES[0].stars);
   buildPlatforms();
   if(frameId)cancelAnimationFrame(frameId);
@@ -869,7 +938,7 @@ function startGame(){
 // ═══════════════════════════════════
 document.addEventListener('keydown',e=>{
   keys[e.key]=true;
-  if(isGameOver&&(e.key===' '||e.key==='Enter'))startGame();
+  if((isGameOver||isWin)&&(e.key===' '||e.key==='Enter'))startGame();
   if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
 },{passive:false});
 document.addEventListener('keyup',e=>{keys[e.key]=false;});
