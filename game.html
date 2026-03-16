@@ -503,13 +503,7 @@ function drawPlayer(p) {
   });
   ctx.globalAlpha=1;
 
-  // combo halo — NO RED, only gold/yellow for high combo
-  if(combo>=8){
-    ctx.globalAlpha=0.2+Math.sin(Date.now()*0.009)*0.1;
-    ctx.fillStyle=combo>=15?'#ffd700':'#ffcc00';
-    ctx.fillRect(px-4, py-6, W_+8, H_+10);
-    ctx.globalAlpha=1;
-  }
+  // NO glow halo on player
 
   // helper: draw pixel rect mirrored if facing left
   function R(x,y,w,h,c){
@@ -560,38 +554,18 @@ function drawPlayer(p) {
   ctx.fillStyle='#111';
   ctx.fillRect(px+Math.round(W_*0.18), py+Math.round(H_*0.3), Math.round(W_*0.64), Math.round(H_*0.38));
 
-  // FREE WIFI text on shirt — pixel letters
-  const tx0 = px + Math.round(W_*0.2);
-  const ty0 = py + Math.round(H_*0.38);
-  const tScale = Math.max(1, Math.floor(W_/60));
+  // FREE WIFI on shirt — use tiny canvas text for reliability
+  const shirtCx = px + Math.round(W_*0.5);
+  const shirtTop = py + Math.round(H_*0.35);
+  const fontSize = Math.max(4, Math.floor(W_*0.065));
+  ctx.font = `bold ${fontSize}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
   ctx.fillStyle = '#fff';
-  // "FREE" — simplified pixel font row 1
-  const freePixels = [
-    [1,1,1,0,1,0,0,0,1,1,1,0,1,1,1],
-    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0],
-    [1,1,0,0,1,0,0,0,1,1,1,0,1,1,0],
-    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0],
-    [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
-  ];
-  freePixels.forEach((row,ri)=>{
-    row.forEach((bit,ci)=>{
-      if(bit) ctx.fillRect(tx0+ci*tScale, ty0+ri*tScale, tScale, tScale);
-    });
-  });
-  // "WIFI" row 2
-  const ty1 = ty0 + 6*tScale;
-  const wifiPixels = [
-    [1,0,1,0,1,1,1,0,1,1,1,0,1,0,1],
-    [1,0,1,0,1,0,1,0,0,1,0,0,1,0,1],
-    [1,0,1,0,1,1,1,0,0,1,0,0,1,0,1],
-    [1,1,1,0,0,1,0,0,0,1,0,0,1,0,1],
-    [0,1,0,0,0,1,0,0,0,1,0,0,0,1,0],
-  ];
-  wifiPixels.forEach((row,ri)=>{
-    row.forEach((bit,ci)=>{
-      if(bit) ctx.fillRect(tx0+ci*tScale, ty1+ri*tScale, tScale, tScale);
-    });
-  });
+  ctx.fillText('FREE', shirtCx, shirtTop);
+  ctx.fillText('WIFI', shirtCx, shirtTop + fontSize + 1);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
 
   // ── BELT ──
   ctx.fillStyle='#555';
@@ -734,7 +708,7 @@ function createPlayer(){
 }
 
 function physics(){
-  if(isWin) { updateWin(); return; }
+  if(isWin) return;
   const p=player;
   const theme=getTheme(floor);
 
@@ -776,6 +750,13 @@ function physics(){
         if(pR<=plat.x||pL>=plat.x+plat.w)continue;
         if(pB>=plat.y&&pB<=plat.y+plat.h+Math.abs(svy)+4){
           p.y=plat.y-p.h; p.vy=0; p.onGround=true;
+
+          // WIN — landed on the special GOD MODE platform
+          if(plat.isWin){
+            isWin=true; winPhase=0; winTimer=0; shakeAmt=10;
+            return;
+          }
+
           const pf=Math.round((-plat.y)/GAP_Y());
           if(pf>floor){
             const diff=pf-floor; floor=pf;
@@ -783,8 +764,6 @@ function physics(){
             combo+=diff; comboTimer=170;
             if(score>highScore)highScore=score;
             spawnParticles(p.x+p.w/2,p.y,theme.particleColor,5);
-            // WIN condition
-            if(floor>=WIN_FLOOR){ isWin=true; winPhase=0; winTimer=0; shakeAmt=0; return; }
           }
           break;
         }
@@ -834,7 +813,6 @@ function updateWin(){ winTimer++;
 }
 
 function drawWin(){
-  updateWin();
   if(winPhase===0){
     const sx=Math.round((Math.random()-0.5)*shakeAmt*2);
     const sy2=Math.round((Math.random()-0.5)*shakeAmt*2);
@@ -899,7 +877,7 @@ function drawWin(){
 // ═══════════════════════════════════
 function loop(){
   frameId=requestAnimationFrame(loop);
-  if(isWin){ drawWin(); return; }
+  if(isWin){ updateWin(); drawWin(); return; }
   const theme=getTheme(floor);
   drawBackground(theme);
   if(!isGameOver){
