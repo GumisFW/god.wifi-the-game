@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>GOD.WIFI TOWER</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background:#000;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      height:100vh;
+      overflow:hidden;
+      font-family:'Press Start 2P', monospace;
+    }
+    #gameCanvas {
+      display:block;
+      image-rendering:pixelated;
+      border: 3px solid #e00;
+      box-shadow: 0 0 30px rgba(220,0,0,0.5);
+    }
+    #ui {
+      position:absolute;
+      top:0; left:0; right:0; bottom:0;
+      pointer-events:none;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    #overlay {
+      background: rgba(0,0,0,0.85);
+      border: 4px solid #e00;
+      padding: 30px 40px;
+      text-align:center;
+      color:#fff;
+      max-width:340px;
+      width:90%;
+      box-shadow: 6px 6px 0 #900;
+    }
+    #overlay h1 {
+      font-size:clamp(0.7rem,3vw,1.1rem);
+      color:#e00;
+      margin-bottom:16px;
+      text-shadow: 3px 3px 0 #600;
+      line-height:1.8;
+    }
+    #overlay p {
+      font-size:clamp(0.4rem,1.8vw,0.6rem);
+      color:#aaa;
+      margin-bottom:20px;
+      line-height:2;
+    }
+    #startBtn {
+      font-family:'Press Start 2P', monospace;
+      font-size:clamp(0.5rem,2vw,0.8rem);
+      color:#fff;
+      background:#000;
+      border:3px solid #e00;
+      padding:12px 28px;
+      cursor:pointer;
+      pointer-events:all;
+      letter-spacing:0.1em;
+      box-shadow: 4px 4px 0 #900;
+      animation: btnPulse 1s steps(1) infinite;
+    }
+    #startBtn:hover { background:#e00; }
+    @keyframes btnPulse {
+      0%,49%{box-shadow:4px 4px 0 #900;}
+      50%,100%{box-shadow:4px 4px 0 #f44;}
+    }
+    #hud {
+      position:absolute;
+      top:8px; left:0; right:0;
+      display:flex;
+      justify-content:space-between;
+      padding:0 12px;
+      pointer-events:none;
+      font-size:clamp(0.35rem,1.5vw,0.55rem);
+      color:#fff;
+      text-shadow:2px 2px 0 #000;
+      display:none;
+    }
+    #hud.active { display:flex; }
+    #gameOver {
+      display:none;
+    }
+    #gameOver.active { display:block; }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<div id="ui">
+  <div id="overlay">
+    <h1>GOD.WIFI<br>TOWER</h1>
+    <p>← → RUCH<br>SPACJA / ↑ SKOK<br>COMBO = WYŻSZY SKOK!</p>
+    <button id="startBtn" onclick="startGame()">► START ◄</button>
+  </div>
+  <div id="hud" class="active" style="display:none">
+    <span id="hudFloor">FLOOR: 0</span>
+    <span id="hudScore">SCORE: 0</span>
+    <span id="hudCombo">COMBO: 0</span>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// ── SIZING ──────────────────────────────────────────────────────────────────
+function resize() {
+  const maxH = window.innerHeight - 6;
+  const maxW = window.innerWidth - 6;
+  const ratio = 9/16;
+  let h = maxH, w = h * ratio;
+  if (w > maxW) { w = maxW; h = w / ratio; }
+  canvas.width  = Math.floor(w);
+  canvas.height = Math.floor(h);
+}
+resize();
+window.addEventListener('resize', () => { resize(); if(gameRunning) buildInitialPlatforms(); });
+
+const W = () => canvas.width;
+const H = () => canvas.height;
+
+// ── THEMES ──────────────────────────────────────────────────────────────────
+const THEMES = [
+  { // 0 - CITY / START
+    name:'CITY',
+    bg:['#0a0a1a','#111133'],
+    platformColor:'#334',
+    platformTop:'#556',
+    platformGlow:'#44f',
+    stars:true,
+    particles:'#44f',
+  },
+  { // 1 - WINTER
+    name:'WINTER',
+    bg:['#0d1b2a','#1a3a5c'],
+    platformColor:'#4488cc',
+    platformTop:'#aaddff',
+    platformGlow:'#88ccff',
+    stars:true,
+    particles:'#aaddff',
+  },
+  { // 2 - JUNGLE
+    name:'JUNGLE',
+    bg:['#0a1f0a','#1a3d1a'],
+    platformColor:'#2d5a1b',
+    platformTop:'#4a9e2f',
+    platformGlow:'#66dd33',
+    stars:false,
+    particles:'#66dd33',
+  },
+  { // 3 - DESERT
+    name:'DESERT',
+    bg:['#1f1000','#3d2200'],
+    platformColor:'#8b5a00',
+    platformTop:'#d4922a',
+    platformGlow:'#ffaa33',
+    stars:false,
+    particles:'#ffaa33',
+  },
+  { // 4 - SPACE
+    name:'SPACE',
+    bg:['#000005','#050015'],
+    platformColor:'#220033',
+    platformTop:'#aa00ff',
+    platformGlow:'#cc44ff',
+    stars:true,
+    particles:'#cc44ff',
+  },
+  { // 5 - HELL
+    name:'HELL',
+    bg:['#1a0000','#330000'],
+    platformColor:'#550000',
+    platformTop:'#cc2200',
+    platformGlow:'#ff4400',
+    stars:false,
+    particles:'#ff4400',
+  },
+  { // 6 - ICE
+    name:'ICE PEAK',
+    bg:['#e8f4f8','#b0d8e8'],
+    platformColor:'#88bbdd',
+    platformTop:'#ffffff',
+    platformGlow:'#cceeff',
+    stars:false,
+    particles:'#ffffff',
+  },
+];
+
+// ── GAME STATE ───────────────────────────────────────────────────────────────
+let gameRunning = false;
+let player, platforms, particles, score, floor, combo, comboTimer, highScore;
+let cameraY, bgStars;
+let keys = {};
+let frameId;
+highScore = 0;
+
+// ── PLAYER ───────────────────────────────────────────────────────────────────
+function createPlayer() {
+  return {
+    x: W()/2 - 12,
+    y: H() - 120,
+    w: 24, h: 32,
+    vx: 0, vy: 0,
+    onGround: false,
+    facing: 1,
+    frame: 0,
+    frameTimer: 0,
+    jumpCount: 0,
+    color: '#e00',
+    trail: [],
+  };
+}
+
+// ── PLATFORMS ────────────────────────────────────────────────────────────────
+const PLAT_W_MIN = () => W() * 0.12;
+const PLAT_W_MAX = () => W() * 0.32;
+const PLAT_H = () => Math.max(8, Math.floor(H()*0.018));
+const PLAT_GAP_Y = () => H() * 0.10;
+
+function createPlatform(y, isGround=false) {
+  const w = isGround ? W() : PLAT_W_MIN() + Math.random()*(PLAT_W_MAX()-PLAT_W_MIN());
+  const x = isGround ? 0 : Math.random() * (W() - w);
+  return { x, y, w, h: isGround ? 16 : PLAT_H(), isGround, sparkTimer:0 };
+}
+
+function buildInitialPlatforms() {
+  platforms = [];
+  // ground
+  platforms.push(createPlatform(H()-20, true));
+  // stack upward
+  let y = H() - 20 - PLAT_GAP_Y();
+  while(y > -H()*5) {
+    platforms.push(createPlatform(y));
+    y -= PLAT_GAP_Y() * (0.7 + Math.random()*0.6);
+  }
+}
+
+// ── PARTICLES ────────────────────────────────────────────────────────────────
+function spawnParticles(x, y, color, count=6) {
+  for(let i=0;i<count;i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random()-0.5)*4,
+      vy: (Math.random()-0.5)*4 - 2,
+      life: 1, color,
+      size: 3+Math.random()*3,
+    });
+  }
+}
+
+// ── THEME BY FLOOR ───────────────────────────────────────────────────────────
+function getTheme(floor) {
+  if(floor < 20)  return THEMES[0];
+  if(floor < 40)  return THEMES[1];
+  if(floor < 65)  return THEMES[2];
+  if(floor < 95)  return THEMES[3];
+  if(floor < 130) return THEMES[4];
+  if(floor < 170) return THEMES[5];
+  return THEMES[6];
+}
+
+// ── DRAW PIXEL PLAYER ────────────────────────────────────────────────────────
+function drawPlayer(p) {
+  const px = Math.round(p.x - (p.trail.length>0?0:0));
+  // trail
+  p.trail.forEach((t,i) => {
+    ctx.globalAlpha = (i/p.trail.length)*0.3;
+    ctx.fillStyle = '#e00';
+    ctx.fillRect(Math.round(t.x), Math.round(t.y - cameraY), p.w*0.6, p.h*0.6);
+  });
+  ctx.globalAlpha = 1;
+
+  const x = Math.round(p.x);
+  const y = Math.round(p.y - cameraY);
+  const f = p.facing;
+
+  // body pixel art (24x32 grid simplified)
+  const S = Math.max(1, Math.floor(W()/160)); // pixel size
+
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,0.3)';
+  ctx.fillRect(x+2, y+p.h-2, p.w-4, 4);
+
+  // legs animation
+  const legAnim = p.onGround ? Math.floor(Date.now()/120)%2 : 0;
+
+  // BODY
+  ctx.fillStyle = '#cc0000';
+  ctx.fillRect(x+4, y+14, p.w-8, 14);
+
+  // HEAD
+  ctx.fillStyle = '#ffcc88';
+  ctx.fillRect(x+5, y+2, p.w-10, 12);
+
+  // HAIR
+  ctx.fillStyle = '#111';
+  ctx.fillRect(x+4, y, p.w-8, 5);
+
+  // EYES
+  ctx.fillStyle = '#000';
+  if(f > 0) {
+    ctx.fillRect(x+13, y+5, 3, 3);
+    ctx.fillRect(x+9,  y+5, 2, 2);
+  } else {
+    ctx.fillRect(x+8,  y+5, 3, 3);
+    ctx.fillRect(x+15, y+5, 2, 2);
+  }
+
+  // LEGS
+  ctx.fillStyle = '#222';
+  if(legAnim===0 && p.onGround) {
+    ctx.fillRect(x+5,  y+28, 6, 4);
+    ctx.fillRect(x+13, y+26, 6, 6);
+  } else {
+    ctx.fillRect(x+5,  y+26, 6, 6);
+    ctx.fillRect(x+13, y+28, 6, 4);
+  }
+
+  // ARMS
+  ctx.fillStyle = '#aa0000';
+  if(!p.onGround) {
+    ctx.fillRect(x+0,  y+14, 5, 4);
+    ctx.fillRect(x+19, y+14, 5, 4);
+  } else {
+    ctx.fillRect(x+0,  y+16, 5, 4);
+    ctx.fillRect(x+19, y+16, 5, 4);
+  }
+
+  // combo glow
+  if(combo >= 5) {
+    ctx.globalAlpha = 0.3 + Math.sin(Date.now()*0.01)*0.2;
+    ctx.fillStyle = combo >= 10 ? '#ff8800' : '#ffff00';
+    ctx.fillRect(x-4, y-4, p.w+8, p.h+8);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ── DRAW PLATFORM ────────────────────────────────────────────────────────────
+function drawPlatform(plat, theme) {
+  const y = Math.round(plat.y - cameraY);
+  if(y > H()+20 || y < -20) return;
+
+  // body
+  ctx.fillStyle = theme.platformColor;
+  ctx.fillRect(Math.round(plat.x), y, Math.round(plat.w), plat.h);
+
+  // top highlight (pixelated)
+  ctx.fillStyle = theme.platformTop;
+  ctx.fillRect(Math.round(plat.x), y, Math.round(plat.w), Math.max(2, Math.floor(plat.h*0.3)));
+
+  // pixel edge details
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(Math.round(plat.x), y+plat.h-2, Math.round(plat.w), 2);
+
+  // glow
+  ctx.shadowColor = theme.platformGlow;
+  ctx.shadowBlur = 8;
+  ctx.fillStyle = 'rgba(0,0,0,0)';
+  ctx.fillRect(Math.round(plat.x), y, Math.round(plat.w), 2);
+  ctx.shadowBlur = 0;
+
+  // pixel decoration every 20px
+  if(!plat.isGround) {
+    ctx.fillStyle = theme.platformTop;
+    for(let dx=8; dx<plat.w-8; dx+=18) {
+      ctx.fillRect(Math.round(plat.x+dx), y, 4, 4);
+    }
+  }
+}
+
+// ── DRAW BACKGROUND ──────────────────────────────────────────────────────────
+let bgImage = new Image();
+bgImage.src = 'ggodwifipingwintlo.png';
+
+function drawBackground(theme) {
+  // draw background image tiled/scaled to fill canvas
+  if(bgImage.complete && bgImage.naturalWidth > 0) {
+    // parallax: moves slowly with camera
+    const parallax = (cameraY * 0.08) % H();
+    ctx.globalAlpha = 0.55;
+    // draw twice to cover seam
+    ctx.drawImage(bgImage, 0, parallax, W(), H());
+    ctx.drawImage(bgImage, 0, parallax - H(), W(), H());
+    ctx.globalAlpha = 1;
+  }
+
+  // dark overlay so game elements are readable
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(0,0,W(),H());
+
+  // theme color tint
+  ctx.globalAlpha = 0.18;
+  const grad = ctx.createLinearGradient(0,0,0,H());
+  grad.addColorStop(0, theme.bg[0]);
+  grad.addColorStop(1, theme.bg[1]);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W(),H());
+  ctx.globalAlpha = 1;
+
+  // stars
+  if(theme.stars) {
+    bgStars.forEach(s => {
+      const sy = ((s.y - cameraY*s.speed) % H() + H()) % H();
+      ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
+      ctx.fillRect(s.x, sy, s.size, s.size);
+    });
+  }
+
+  // theme flash on zone change
+  if(themeFlash > 0) {
+    ctx.globalAlpha = themeFlash * 0.5;
+    ctx.fillStyle = theme.platformGlow;
+    ctx.fillRect(0,0,W(),H());
+    ctx.globalAlpha = 1;
+    themeFlash -= 0.05;
+  }
+}
+
+// ── HUD ──────────────────────────────────────────────────────────────────────
+function drawHUD(theme) {
+  ctx.font = `${Math.floor(W()*0.028)}px 'Press Start 2P'`;
+  ctx.textBaseline = 'top';
+
+  // score
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor='#000'; ctx.shadowBlur=4;
+  ctx.fillText(`FL:${floor}`, 8, 8);
+  ctx.fillText(`SC:${score}`, W()/2 - ctx.measureText(`SC:${score}`).width/2, 8);
+  ctx.fillText(`HI:${highScore}`, W() - ctx.measureText(`HI:${highScore}`).width - 8, 8);
+
+  // combo
+  if(combo >= 3) {
+    const cc = combo >= 10 ? '#ff8800' : '#ffff00';
+    ctx.fillStyle = cc;
+    ctx.shadowColor = cc; ctx.shadowBlur = 12;
+    const cs = Math.floor(W()*0.035);
+    ctx.font = `${cs}px 'Press Start 2P'`;
+    const ct = `COMBO x${combo}!`;
+    ctx.fillText(ct, W()/2 - ctx.measureText(ct).width/2, H()*0.15);
+  }
+
+  // theme name
+  ctx.fillStyle = theme.platformGlow;
+  ctx.shadowColor = theme.platformGlow; ctx.shadowBlur = 8;
+  ctx.font = `${Math.floor(W()*0.022)}px 'Press Start 2P'`;
+  ctx.fillText(theme.name, W()-ctx.measureText(theme.name).width-8, H()-20);
+
+  ctx.shadowBlur = 0;
+}
+
+// ── GAME OVER SCREEN ──────────────────────────────────────────────────────────
+function drawGameOver() {
+  ctx.fillStyle = 'rgba(0,0,0,0.8)';
+  ctx.fillRect(0,0,W(),H());
+
+  ctx.textBaseline='middle';
+  ctx.textAlign='center';
+
+  ctx.fillStyle='#e00';
+  ctx.shadowColor='#f00'; ctx.shadowBlur=20;
+  ctx.font=`${Math.floor(W()*0.06)}px 'Press Start 2P'`;
+  ctx.fillText('GAME OVER', W()/2, H()*0.35);
+
+  ctx.shadowBlur=0;
+  ctx.fillStyle='#fff';
+  ctx.font=`${Math.floor(W()*0.032)}px 'Press Start 2P'`;
+  ctx.fillText(`FLOOR: ${floor}`, W()/2, H()*0.48);
+  ctx.fillText(`SCORE: ${score}`, W()/2, H()*0.56);
+
+  if(score >= highScore) {
+    ctx.fillStyle='#ffdd00';
+    ctx.fillText('NEW RECORD!', W()/2, H()*0.64);
+  }
+
+  ctx.fillStyle='#aaa';
+  ctx.font=`${Math.floor(W()*0.025)}px 'Press Start 2P'`;
+  ctx.fillText('SPACJA = RESTART', W()/2, H()*0.78);
+
+  ctx.textAlign='left';
+}
+
+// ── PHYSICS & LOGIC ───────────────────────────────────────────────────────────
+const GRAVITY    = () => H() * 0.0018;
+const JUMP_BASE  = () => -H() * 0.026;
+const MOVE_SPEED = () => W() * 0.007;
+const MAX_VY     = () => H() * 0.03;
+
+let isGameOver = false;
+let themeFlash = 0;
+let lastThemeIdx = 0;
+let jumpPressed = false;
+
+function physics(dt) {
+  const p = player;
+  const theme = getTheme(floor);
+  const themeIdx = THEMES.indexOf(theme);
+  if(themeIdx !== lastThemeIdx) { themeFlash = 1; lastThemeIdx = themeIdx; }
+
+  // horizontal
+  if(keys['ArrowLeft']  || keys['a'] || keys['A']) { p.vx = -MOVE_SPEED(); p.facing=-1; }
+  else if(keys['ArrowRight'] || keys['d'] || keys['D']) { p.vx = MOVE_SPEED(); p.facing=1; }
+  else p.vx *= 0.75;
+
+  // jump
+  const wantJump = keys['ArrowUp'] || keys[' '] || keys['w'] || keys['W'];
+  if(wantJump && !jumpPressed && p.onGround) {
+    const boost = Math.min(combo * 0.12, 1.5);
+    p.vy = JUMP_BASE() * (1 + boost);
+    p.onGround = false;
+    jumpPressed = true;
+    spawnParticles(p.x+p.w/2, p.y+p.h, theme.particles, 8);
+  }
+  if(!wantJump) jumpPressed = false;
+
+  // gravity
+  p.vy += GRAVITY();
+  if(p.vy > MAX_VY()) p.vy = MAX_VY();
+
+  // ── MOVE IN SUBSTEPS for reliable collision ──
+  const STEPS = 4;
+  const stepVx = p.vx / STEPS;
+  const stepVy = p.vy / STEPS;
+
+  p.onGround = false;
+
+  for(let s = 0; s < STEPS; s++) {
+    p.x += stepVx;
+    p.y += stepVy;
+
+    // wrap horizontal
+    if(p.x + p.w < 0) p.x = W();
+    if(p.x > W())     p.x = -p.w;
+
+    // platform collision — only when moving downward
+    if(stepVy >= 0) {
+      for(const plat of platforms) {
+        const pBottom = p.y + p.h;
+        const pLeft   = p.x + 3;
+        const pRight  = p.x + p.w - 3;
+        const platTop = plat.y;
+
+        // horizontal overlap
+        if(pRight <= plat.x || pLeft >= plat.x + plat.w) continue;
+        // vertical: bottom of player crossed top of platform this substep
+        if(pBottom >= platTop && pBottom <= platTop + plat.h + Math.abs(stepVy) + 2) {
+          p.y = platTop - p.h;
+          p.vy = 0;
+          p.onGround = true;
+
+          const platFloor = Math.round(-plat.y / (PLAT_GAP_Y()));
+          if(platFloor > floor) {
+            const diff = platFloor - floor;
+            floor = platFloor;
+            score += diff * (1 + combo);
+            combo += diff;
+            comboTimer = 140;
+            if(score > highScore) highScore = score;
+            spawnParticles(p.x+p.w/2, p.y+p.h, theme.particles, 6);
+          }
+          break;
+        }
+      }
+    }
+
+    if(p.onGround) break;
+  }
+
+  // trail
+  p.trail.push({x:p.x, y:p.y});
+  if(p.trail.length > 6) p.trail.shift();
+
+  // combo decay
+  if(comboTimer > 0) { comboTimer--; } else { combo = 0; }
+
+  // camera: follow player upward
+  const targetCam = p.y - H()*0.45;
+  cameraY += (targetCam - cameraY) * 0.08;
+
+  // fell below camera
+  if(p.y - cameraY > H() + 50) {
+    isGameOver = true;
+  }
+
+  // generate new platforms above
+  const topY = cameraY - H()*0.5;
+  while(platforms.length === 0 || platforms[platforms.length-1].y > topY) {
+    const lastY = platforms.length ? platforms[platforms.length-1].y : H()-20;
+    const newY  = lastY - PLAT_GAP_Y() * (0.7 + Math.random()*0.6);
+    platforms.push(createPlatform(newY));
+  }
+
+  // remove old platforms far below
+  platforms = platforms.filter(pl => pl.y - cameraY < H() + 200);
+}
+
+function updateParticles() {
+  particles = particles.filter(p => p.life > 0.01);
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.15;
+    p.life *= 0.9;
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(Math.round(p.x - cameraY*0), Math.round(p.y - cameraY), p.size, p.size);
+  });
+  ctx.globalAlpha = 1;
+}
+
+// ── MAIN LOOP ─────────────────────────────────────────────────────────────────
+function loop() {
+  frameId = requestAnimationFrame(loop);
+  const theme = getTheme(floor);
+
+  drawBackground(theme);
+
+  if(!isGameOver) {
+    physics(1);
+    platforms.forEach(pl => drawPlatform(pl, theme));
+    updateParticles();
+    drawPlayer(player);
+    drawHUD(theme);
+  } else {
+    platforms.forEach(pl => drawPlatform(pl, theme));
+    drawPlayer(player);
+    drawGameOver();
+  }
+}
+
+// ── START / RESTART ───────────────────────────────────────────────────────────
+function startGame() {
+  document.getElementById('overlay').style.display='none';
+
+  player    = createPlayer();
+  particles = [];
+  score     = 0;
+  floor     = 0;
+  combo     = 0;
+  comboTimer= 0;
+  cameraY   = 0;
+  isGameOver= false;
+  lastThemeIdx=0;
+  themeFlash=0;
+  jumpPressed=false;
+
+  // stars
+  bgStars = Array.from({length:80},()=>({
+    x: Math.random()*800,
+    y: Math.random()*3000,
+    size: Math.random()<0.3?2:1,
+    alpha: 0.3+Math.random()*0.7,
+    speed: 0.2+Math.random()*0.4,
+  }));
+
+  buildInitialPlatforms();
+
+  if(frameId) cancelAnimationFrame(frameId);
+  gameRunning = true;
+  loop();
+}
+
+// ── INPUT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if(isGameOver && (e.key===' '||e.key==='Enter')) startGame();
+  e.preventDefault();
+}, {passive:false});
+document.addEventListener('keyup',  e => { keys[e.key] = false; });
+
+// Touch controls
+let touchStartX=null, touchStartY=null;
+canvas.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  const t = e.touches[0];
+  touchStartX = t.clientX;
+  touchStartY = t.clientY;
+  // tap to jump
+  keys[' '] = true;
+},{passive:false});
+canvas.addEventListener('touchend', e=>{
+  e.preventDefault();
+  keys[' '] = false;
+  keys['ArrowLeft'] = false;
+  keys['ArrowRight'] = false;
+  if(isGameOver) startGame();
+},{passive:false});
+canvas.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  const t = e.touches[0];
+  const dx = t.clientX - touchStartX;
+  keys['ArrowLeft']  = dx < -20;
+  keys['ArrowRight'] = dx > 20;
+},{passive:false});
+
+// Virtual buttons for mobile
+const vLeft = document.createElement('div');
+const vRight = document.createElement('div');
+const vJump  = document.createElement('div');
+[vLeft,vRight,vJump].forEach(v=>{
+  v.style.cssText='position:fixed;bottom:16px;width:64px;height:64px;background:rgba(220,0,0,0.3);border:3px solid #e00;display:flex;align-items:center;justify-content:center;font-family:"Press Start 2P",monospace;color:#fff;font-size:18px;cursor:pointer;user-select:none;z-index:100;border-radius:4px;touch-action:none;';
+});
+vLeft.textContent='◄'; vLeft.style.left='16px';
+vRight.textContent='►'; vRight.style.left='96px';
+vJump.textContent='↑';  vJump.style.right='16px';
+[vLeft,vRight,vJump].forEach(v=>document.body.appendChild(v));
+
+vLeft.addEventListener('touchstart',  e=>{ e.preventDefault(); keys['ArrowLeft']=true;  },{passive:false});
+vLeft.addEventListener('touchend',    e=>{ e.preventDefault(); keys['ArrowLeft']=false; },{passive:false});
+vRight.addEventListener('touchstart', e=>{ e.preventDefault(); keys['ArrowRight']=true;  },{passive:false});
+vRight.addEventListener('touchend',   e=>{ e.preventDefault(); keys['ArrowRight']=false; },{passive:false});
+vJump.addEventListener('touchstart',  e=>{ e.preventDefault(); keys[' ']=true;  },{passive:false});
+vJump.addEventListener('touchend',    e=>{ e.preventDefault(); keys[' ']=false; },{passive:false});
+
+// hide virtual buttons on desktop
+if(!('ontouchstart' in window)) {
+  [vLeft,vRight,vJump].forEach(v=>v.style.display='none');
+}
+</script>
+</body>
+</html>
