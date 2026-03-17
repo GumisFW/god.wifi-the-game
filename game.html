@@ -51,7 +51,7 @@
 <div id="ui">
   <div id="overlay">
     <h1>GOD.WIFI<br>TOWER</h1>
-    <div class="sub">← → RUCH &nbsp; SPACJA / ↑ SKOK<br>LĄDUJ WYSOKO = COMBO!</div>
+    <div class="sub">← → RUCH &nbsp; SPACJA / ↑ SKOK<br>ŚCIANA + SPACJA = WALL JUMP!<br>LĄDUJ WYSOKO = COMBO!</div>
     <button id="startBtn" onclick="startGame()">► START ◄</button>
   </div>
 </div>
@@ -488,113 +488,72 @@ function drawBackground(theme) {
 //  PLAYER  — pixel art inspired by sprite
 //  Long dark hair, sunglasses, dark outfit, god.wifi vibe
 // ═══════════════════════════════════
+// ═══════════════════════════════════
+//  SPRITE ASSETS
+// ═══════════════════════════════════
+const SPRITES = {};
+['idle','jump_up','jump_side','walk','run','crouch'].forEach(name => {
+  const img = new Image();
+  img.src = `sp_${name}.png`;
+  SPRITES[name] = img;
+});
+
 function drawPlayer(p) {
-  const px = Math.round(p.x);
-  const py = Math.round(p.y - cameraY);
-  const f  = p.facing; // 1=right, -1=left
   const W_ = p.w, H_ = p.h;
-  const S  = Math.max(1, Math.floor(W_/14)); // base pixel size ~3px
+  const px  = Math.round(p.x);
+  const py  = Math.round(p.y - cameraY);
 
-  // no trail
+  // pick sprite based on state
+  let spriteName = 'idle';
+  const moving = Math.abs(p.vx) > MAX_SPD_()*0.3;
 
-  // NO glow halo on player
-
-  // helper: draw pixel rect mirrored if facing left
-  function R(x,y,w,h,c){
-    ctx.fillStyle=c;
-    const dx = f>0 ? px+x : px+(W_-x-w);
-    ctx.fillRect(dx, py+y, w, h);
-  }
-
-  // ── HAIR (long, dark, flowing) ──
-  const hairW = Math.round(W_*0.55);
-  const hairX = f>0 ? px+Math.round(W_*0.15) : px+Math.round(W_*0.3);
-  ctx.fillStyle='#1a0e06';
-  ctx.fillRect(hairX, py, hairW, Math.round(H_*0.72));
-  ctx.fillStyle='#2a1810';
-  for(let i=0;i<4;i++){
-    ctx.fillRect(hairX + i*Math.round(hairW/4), py+Math.round(H_*0.3), Math.round(hairW/5), Math.round(H_*0.45));
-  }
-  ctx.fillStyle='#1a0e06';
-  const tailSide = f>0 ? px+Math.round(W_*0.6) : px+Math.round(W_*0.05);
-  for(let i=0;i<3;i++){
-    ctx.fillRect(tailSide+i*3, py+Math.round(H_*0.5)+i*6, 3, 10);
-  }
-
-  // ── HEAD ──
-  const hx=Math.round(W_*0.22), hSz=Math.round(W_*0.55);
-  ctx.fillStyle='#c8956a';
-  ctx.fillRect(px+hx, py+2, hSz, Math.round(H_*0.28));
-  ctx.fillStyle='#1a0e06';
-  ctx.fillRect(px+hx-2, py, hSz+4, Math.round(H_*0.12));
-  ctx.fillRect(px+hx, py, hSz, Math.round(H_*0.1));
-
-  // ── SUNGLASSES ──
-  const gy = py + Math.round(H_*0.1);
-  const gx1 = px+Math.round(W_*0.24);
-  ctx.fillStyle='#000';
-  ctx.fillRect(gx1, gy, Math.round(W_*0.22), Math.round(H_*0.1));
-  ctx.fillRect(gx1+Math.round(W_*0.28), gy, Math.round(W_*0.22), Math.round(H_*0.1));
-  ctx.fillStyle='#333';
-  ctx.fillRect(gx1+Math.round(W_*0.22), gy+2, Math.round(W_*0.06), 3);
-  ctx.fillStyle='rgba(255,255,255,0.6)';
-  ctx.fillRect(gx1+2, gy+2, 3, 3);
-
-  // mouth
-  ctx.fillStyle='#8b3a3a';
-  ctx.fillRect(px+Math.round(W_*0.38), py+Math.round(H_*0.22), Math.round(W_*0.22), Math.round(H_*0.06));
-
-  // ── BODY / T-SHIRT black ──
-  ctx.fillStyle='#111';
-  ctx.fillRect(px+Math.round(W_*0.18), py+Math.round(H_*0.3), Math.round(W_*0.64), Math.round(H_*0.38));
-
-  // FREE WIFI on shirt — use tiny canvas text for reliability
-  const shirtCx = px + Math.round(W_*0.5);
-  const shirtTop = py + Math.round(H_*0.35);
-  const fontSize = Math.max(4, Math.floor(W_*0.065));
-  ctx.font = `bold ${fontSize}px monospace`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = '#fff';
-  ctx.fillText('FREE', shirtCx, shirtTop);
-  ctx.fillText('WIFI', shirtCx, shirtTop + fontSize + 1);
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
-
-  // ── BELT ──
-  ctx.fillStyle='#555';
-  ctx.fillRect(px+Math.round(W_*0.18), py+Math.round(H_*0.66), Math.round(W_*0.64), Math.round(H_*0.05));
-
-  // ── ARMS ──
-  if(!p.onGround){
-    R(0, Math.round(H_*0.3), Math.round(W_*0.18), Math.round(H_*0.3),'#111');
-    R(Math.round(W_*0.82), Math.round(H_*0.3), Math.round(W_*0.18), Math.round(H_*0.3),'#111');
-    R(0, Math.round(H_*0.28), Math.round(W_*0.18), Math.round(H_*0.1),'#c8956a');
-    R(Math.round(W_*0.82), Math.round(H_*0.28), Math.round(W_*0.18), Math.round(H_*0.1),'#c8956a');
+  if (!p.onGround) {
+    if (p.vy < -MAX_FALL_()*0.2) {
+      spriteName = moving ? 'jump_side' : 'jump_up';
+    } else {
+      spriteName = moving ? 'jump_side' : 'jump_up';
+    }
   } else {
-    R(0, Math.round(H_*0.34), Math.round(W_*0.18), Math.round(H_*0.3),'#111');
-    R(Math.round(W_*0.82), Math.round(H_*0.34), Math.round(W_*0.18), Math.round(H_*0.3),'#111');
-    R(0, Math.round(H_*0.56), Math.round(W_*0.18), Math.round(H_*0.1),'#c8956a');
-    R(Math.round(W_*0.82), Math.round(H_*0.56), Math.round(W_*0.18), Math.round(H_*0.1),'#c8956a');
+    if (moving) {
+      spriteName = Math.abs(p.vx) > MAX_SPD_()*0.7 ? 'run' : 'walk';
+    } else {
+      spriteName = 'idle';
+    }
   }
 
-  // ── PANTS ──
-  ctx.fillStyle='#1c1c28';
-  ctx.fillRect(px+Math.round(W_*0.18), py+Math.round(H_*0.68), Math.round(W_*0.64), Math.round(H_*0.25));
+  // wall slide = crouch
+  if (wallTimer > 0 && !p.onGround) spriteName = 'crouch';
 
-  // ── LEGS ──
-  const leg = p.onGround ? Math.floor(Date.now()/150)%2 : 1;
-  if(leg===0){
-    R(Math.round(W_*0.2),  Math.round(H_*0.82), Math.round(W_*0.22), Math.round(H_*0.18),'#14141e');
-    R(Math.round(W_*0.52), Math.round(H_*0.78), Math.round(W_*0.22), Math.round(H_*0.22),'#14141e');
+  const spr = SPRITES[spriteName];
+
+  // flip horizontally if facing left
+  const flipX = p.facing < 0;
+
+  if (spr.complete && spr.naturalWidth > 0) {
+    ctx.save();
+    if (flipX) {
+      ctx.translate(px + W_, py);
+      ctx.scale(-1, 1);
+      ctx.drawImage(spr, 0, 0, W_, H_);
+    } else {
+      ctx.drawImage(spr, px, py, W_, H_);
+    }
+    ctx.restore();
   } else {
-    R(Math.round(W_*0.2),  Math.round(H_*0.78), Math.round(W_*0.22), Math.round(H_*0.22),'#14141e');
-    R(Math.round(W_*0.52), Math.round(H_*0.82), Math.round(W_*0.22), Math.round(H_*0.18),'#14141e');
+    // fallback while loading
+    ctx.fillStyle = '#e00';
+    ctx.fillRect(px, py, W_, H_);
   }
 
-  // ── SHOES ──
-  R(Math.round(W_*0.16), Math.round(H_*0.92), Math.round(W_*0.3), Math.round(H_*0.08),'#111');
-  R(Math.round(W_*0.5),  Math.round(H_*0.92), Math.round(W_*0.3), Math.round(H_*0.08),'#111');
+  // wall slide sparks
+  if (wallTimer > 0 && !p.onGround) {
+    const sparkX = wallSide < 0 ? px : px + W_ - 3;
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < 3; i++) {
+      if (Math.random() > 0.4)
+        ctx.fillRect(sparkX + (wallSide < 0 ? -2 : 2), py + Math.round(H_ * (0.3 + Math.random() * 0.5)), 2, 2);
+    }
+  }
 }
 
 // ═══════════════════════════════════
@@ -668,14 +627,21 @@ function drawGameOver(){
 }
 
 // ═══════════════════════════════════
-//  PHYSICS CONSTANTS — smooth & floaty
+//  PHYSICS CONSTANTS
+//  Desktop: slow & floaty | Mobile: snappier
 // ═══════════════════════════════════
-const GRAVITY_    = ()=>H()*0.00065;   // very gentle gravity
-const JUMP_POWER_ = ()=>-H()*0.017;    // soft floaty jump
-const MOVE_ACC_   = ()=>W()*0.0009;    // slow acceleration
-const MAX_SPD_    = ()=>W()*0.007;     // capped top speed
-const FRICTION_   = 0.92;              // momentum feels heavy/smooth
-const MAX_FALL_   = ()=>H()*0.018;     // slow terminal velocity
+const isMobileDevice = /Android|iPhone|iPad|iPod|Touch/i.test(navigator.userAgent) || ('ontouchstart' in window);
+
+const GRAVITY_    = ()=> isMobileDevice ? H()*0.0012  : H()*0.00055;
+const JUMP_POWER_ = ()=> isMobileDevice ? -H()*0.022  : -H()*0.018;
+const MOVE_ACC_   = ()=> isMobileDevice ? W()*0.0018  : W()*0.0008;
+const MAX_SPD_    = ()=> isMobileDevice ? W()*0.010   : W()*0.006;
+const FRICTION_   = isMobileDevice ? 0.88 : 0.93;
+const MAX_FALL_   = ()=> isMobileDevice ? H()*0.022   : H()*0.014;
+
+// wall jump state
+let wallTimer = 0;      // frames since last touching wall
+let wallSide  = 0;      // -1 left wall, +1 right wall, 0 none
 
 let score,floor,combo,comboTimer,highScore=0;
 let cameraY,themeFlash,lastThemeIdx;
@@ -694,8 +660,8 @@ const WIN_FLOOR   = 225;
 
 function createPlayer(){
   return {
-    x:W()/2-20, y:H()-130,
-    w:42, h:60,
+    x:W()/2-28, y:H()-160,
+    w:56, h:80,
     vx:0, vy:0,
     onGround:false, facing:1, trail:[],
   };
@@ -712,12 +678,38 @@ function physics(){
   if(p.vx>MAX_SPD_())p.vx=MAX_SPD_();
   if(p.vx<-MAX_SPD_())p.vx=-MAX_SPD_();
 
+  // ── WALL DETECTION (screen edges) ──
+  const onLeftWall  = p.x <= 2;
+  const onRightWall = p.x + p.w >= W() - 2;
+  const onWall = (onLeftWall || onRightWall) && !p.onGround;
+
+  if(onWall) {
+    wallSide  = onLeftWall ? -1 : 1;
+    wallTimer = 12; // frames of wall-jump grace
+    // wall slide: slow down fall
+    if(p.vy > MAX_FALL_()*0.35) p.vy *= 0.82;
+  } else {
+    if(wallTimer > 0) wallTimer--;
+    else wallSide = 0;
+  }
+
+  // ── JUMP (ground OR wall) ──
   const wantJump=keys['ArrowUp']||keys[' ']||keys['w']||keys['W'];
-  if(wantJump&&!jumpPressed&&p.onGround){
-    const boost=Math.min(combo*0.08,1.2);
-    p.vy=JUMP_POWER_()*(1+boost);
-    p.onGround=false; jumpPressed=true;
-    spawnParticles(p.x+p.w/2,p.y+p.h,theme.particleColor,6);
+  if(wantJump&&!jumpPressed){
+    if(p.onGround){
+      // normal jump
+      const boost=Math.min(combo*0.08,1.2);
+      p.vy=JUMP_POWER_()*(1+boost);
+      p.onGround=false; jumpPressed=true;
+      spawnParticles(p.x+p.w/2,p.y+p.h,theme.particleColor,6);
+    } else if(wallTimer>0){
+      // wall jump — kick away from wall
+      p.vy = JUMP_POWER_() * 0.9;
+      p.vx = -wallSide * MAX_SPD_() * 1.8;  // push away from wall
+      p.facing = -wallSide;
+      jumpPressed=true; wallTimer=0;
+      spawnParticles(p.x+p.w/2, p.y+p.h/2, theme.particleColor, 8);
+    }
   }
   if(!wantJump)jumpPressed=false;
 
@@ -898,6 +890,7 @@ function startGame(){
   cameraY=0; themeFlash=0; lastThemeIdx=0;
   isGameOver=false; isWin=false; winPhase=0; winTimer=0; shakeAmt=0;
   gameRunning=true; jumpPressed=false; winBtnListened=false;
+  wallTimer=0; wallSide=0;
   platCache.clear(); canvas.style.cursor='default';
   bgStars=buildStars(THEMES[0].stars);
   buildPlatforms();
