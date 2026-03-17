@@ -492,46 +492,61 @@ function drawBackground(theme) {
 //  SPRITE ASSETS
 // ═══════════════════════════════════
 const SPRITES = {};
-['idle','jump_up','jump_side','walk','run','crouch'].forEach(name => {
+['idle','jump_up','jump_side','crouch'].forEach(name => {
   const img = new Image();
   img.src = `sp_${name}.png`;
   SPRITES[name] = img;
 });
+
+// Walk animation frames
+const WALK_FRAMES = [];
+for(let i = 0; i < 8; i++){
+  const img = new Image();
+  img.src = `walk_f${i}.png`;
+  WALK_FRAMES.push(img);
+}
+
+let walkFrameIdx  = 0;
+let walkFrameTimer = 0;
+const WALK_FRAME_SPEED = 5; // frames per game tick
 
 function drawPlayer(p) {
   const W_ = p.w, H_ = p.h;
   const px  = Math.round(p.x);
   const py  = Math.round(p.y - cameraY);
 
-  // pick sprite based on state
-  let spriteName = 'idle';
-  const moving = Math.abs(p.vx) > MAX_SPD_()*0.3;
+  const moving = Math.abs(p.vx) > MAX_SPD_() * 0.25;
+  const flipX  = p.facing < 0;
 
-  if (!p.onGround) {
-    if (p.vy < -MAX_FALL_()*0.2) {
-      spriteName = moving ? 'jump_side' : 'jump_up';
-    } else {
-      spriteName = moving ? 'jump_side' : 'jump_up';
+  // advance walk animation only when moving on ground
+  if(p.onGround && moving){
+    walkFrameTimer++;
+    const speed = Math.abs(p.vx) / MAX_SPD_();
+    const ticksPerFrame = Math.max(2, Math.round(WALK_FRAME_SPEED / (0.5 + speed)));
+    if(walkFrameTimer >= ticksPerFrame){
+      walkFrameTimer = 0;
+      walkFrameIdx = (walkFrameIdx + 1) % WALK_FRAMES.length;
     }
-  } else {
-    if (moving) {
-      spriteName = Math.abs(p.vx) > MAX_SPD_()*0.7 ? 'run' : 'walk';
-    } else {
-      spriteName = 'idle';
-    }
+  } else if(!moving){
+    walkFrameIdx  = 0;
+    walkFrameTimer = 0;
   }
 
-  // wall slide = crouch
-  if (wallTimer > 0 && !p.onGround) spriteName = 'crouch';
+  // pick sprite
+  let spr;
+  if(wallTimer > 0 && !p.onGround){
+    spr = SPRITES['crouch'];
+  } else if(!p.onGround){
+    spr = moving ? SPRITES['jump_side'] : SPRITES['jump_up'];
+  } else if(moving){
+    spr = WALK_FRAMES[walkFrameIdx];
+  } else {
+    spr = SPRITES['idle'];
+  }
 
-  const spr = SPRITES[spriteName];
-
-  // flip horizontally if facing left
-  const flipX = p.facing < 0;
-
-  if (spr.complete && spr.naturalWidth > 0) {
+  if(spr && spr.complete && spr.naturalWidth > 0){
     ctx.save();
-    if (flipX) {
+    if(flipX){
       ctx.translate(px + W_, py);
       ctx.scale(-1, 1);
       ctx.drawImage(spr, 0, 0, W_, H_);
@@ -540,18 +555,17 @@ function drawPlayer(p) {
     }
     ctx.restore();
   } else {
-    // fallback while loading
-    ctx.fillStyle = '#e00';
+    ctx.fillStyle = '#333';
     ctx.fillRect(px, py, W_, H_);
   }
 
   // wall slide sparks
-  if (wallTimer > 0 && !p.onGround) {
+  if(wallTimer > 0 && !p.onGround){
     const sparkX = wallSide < 0 ? px : px + W_ - 3;
     ctx.fillStyle = '#fff';
-    for (let i = 0; i < 3; i++) {
-      if (Math.random() > 0.4)
-        ctx.fillRect(sparkX + (wallSide < 0 ? -2 : 2), py + Math.round(H_ * (0.3 + Math.random() * 0.5)), 2, 2);
+    for(let i = 0; i < 3; i++){
+      if(Math.random() > 0.4)
+        ctx.fillRect(sparkX + (wallSide<0?-2:2), py + Math.round(H_*(0.3+Math.random()*0.5)), 2, 2);
     }
   }
 }
@@ -890,7 +904,7 @@ function startGame(){
   cameraY=0; themeFlash=0; lastThemeIdx=0;
   isGameOver=false; isWin=false; winPhase=0; winTimer=0; shakeAmt=0;
   gameRunning=true; jumpPressed=false; winBtnListened=false;
-  wallTimer=0; wallSide=0;
+  wallTimer=0; wallSide=0; walkFrameIdx=0; walkFrameTimer=0;
   platCache.clear(); canvas.style.cursor='default';
   bgStars=buildStars(THEMES[0].stars);
   buildPlatforms();
