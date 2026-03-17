@@ -495,13 +495,7 @@ function drawPlayer(p) {
   const W_ = p.w, H_ = p.h;
   const S  = Math.max(1, Math.floor(W_/14)); // base pixel size ~3px
 
-  // trail
-  p.trail.forEach((t,i)=>{
-    ctx.globalAlpha=(i/p.trail.length)*0.22;
-    ctx.fillStyle='#880000';
-    ctx.fillRect(Math.round(t.x)+2, Math.round(t.y-cameraY)+4, W_-4, H_-8);
-  });
-  ctx.globalAlpha=1;
+  // no trail
 
   // NO glow halo on player
 
