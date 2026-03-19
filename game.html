@@ -485,87 +485,135 @@ function drawBackground(theme) {
 }
 
 // ═══════════════════════════════════
-//  PLAYER  — pixel art inspired by sprite
-//  Long dark hair, sunglasses, dark outfit, god.wifi vibe
+//  DROP CHARACTER — drawn on canvas
+//  squash & stretch animations
 // ═══════════════════════════════════
-// ═══════════════════════════════════
-//  SPRITE ASSETS
-// ═══════════════════════════════════
+
+// character selector: 'godwifi' or 'drop'
+let selectedChar = 'godwifi';
+
+// Preload godwifi sprites
 const SPRITES = {};
 ['idle','jump_up','jump_side','crouch'].forEach(name => {
-  const img = new Image();
-  img.src = `sp_${name}.png`;
-  SPRITES[name] = img;
+  const img = new Image(); img.src = `sp_${name}.png`; SPRITES[name] = img;
 });
-
-// Walk animation frames
 const WALK_FRAMES = [];
-for(let i = 0; i < 8; i++){
-  const img = new Image();
-  img.src = `walk_f${i}.png`;
-  WALK_FRAMES.push(img);
+for(let i=0;i<8;i++){
+  const img = new Image(); img.src = `walk_f${i}.png`; WALK_FRAMES.push(img);
+}
+let walkFrameIdx=0, walkFrameTimer=0;
+const WALK_FRAME_SPEED=5;
+
+// ═══════════════════════════════════
+//  DROP CHARACTER — pregenerated pixel art sprites
+// ═══════════════════════════════════
+
+// Always use drop character
+let selectedChar = 'drop';
+
+// Preload godwifi sprites (kept for fallback)
+const SPRITES = {};
+['idle','jump_up','jump_side','crouch'].forEach(name => {
+  const img = new Image(); img.src = `sp_${name}.png`; SPRITES[name] = img;
+});
+const WALK_FRAMES = [];
+for(let i=0;i<8;i++){
+  const img = new Image(); img.src = `walk_f${i}.png`; WALK_FRAMES.push(img);
+}
+let walkFrameIdx=0, walkFrameTimer=0;
+const WALK_FRAME_SPEED=5;
+
+// Preload drop sprites
+const DROP_SPRITES = {};
+const DROP_ANIM_COUNTS = {idle:4, walk:8, jump:6, fall:3, land:5, wall:2};
+for(const [anim, count] of Object.entries(DROP_ANIM_COUNTS)){
+  DROP_SPRITES[anim] = [];
+  for(let i=0;i<count;i++){
+    const img = new Image();
+    img.src = `drop_${anim}_${i}.png`;
+    DROP_SPRITES[anim].push(img);
+  }
 }
 
-let walkFrameIdx  = 0;
-let walkFrameTimer = 0;
-const WALK_FRAME_SPEED = 5; // frames per game tick
+// ── animation state machine ──
+let dropState     = 'idle';
+let dropFrameIdx  = 0;
+let dropFrameTimer= 0;
+let dropWasGround = true;
+let dropLandTimer = 0;
+
+const DROP_FRAME_SPEEDS = { idle:8, walk:5, jump:6, fall:8, land:4, wall:8 };
+
+function updateDropState(p){
+  const moving  = Math.abs(p.vx) > MAX_SPD_()*0.2;
+  const onWall2 = wallTimer > 0 && !p.onGround;
+  let newState = dropState;
+
+  if(onWall2){
+    newState = 'wall';
+  } else if(!p.onGround && p.vy <= 0){
+    newState = 'jump';
+  } else if(!p.onGround && p.vy > 0){
+    newState = 'fall';
+  } else if(p.onGround && !dropWasGround){
+    newState = 'land'; dropLandTimer = DROP_ANIM_COUNTS.land * DROP_FRAME_SPEEDS.land;
+  } else if(p.onGround && dropLandTimer > 0){
+    newState = 'land'; dropLandTimer--;
+  } else if(p.onGround && moving){
+    newState = 'walk';
+  } else {
+    newState = 'idle';
+  }
+
+  if(newState !== dropState){
+    dropState = newState;
+    dropFrameIdx  = 0;
+    dropFrameTimer= 0;
+  } else {
+    dropFrameTimer++;
+    const spd = DROP_FRAME_SPEEDS[dropState] || 6;
+    if(dropFrameTimer >= spd){
+      dropFrameTimer = 0;
+      const maxF = DROP_ANIM_COUNTS[dropState];
+      // land plays once then holds last frame
+      if(dropState === 'land'){
+        dropFrameIdx = Math.min(dropFrameIdx+1, maxF-1);
+      } else {
+        dropFrameIdx = (dropFrameIdx+1) % maxF;
+      }
+    }
+  }
+
+  dropWasGround = p.onGround;
+}
 
 function drawPlayer(p) {
   const W_ = p.w, H_ = p.h;
   const px  = Math.round(p.x);
   const py  = Math.round(p.y - cameraY);
 
-  const moving = Math.abs(p.vx) > MAX_SPD_() * 0.25;
-  const flipX  = p.facing < 0;
-
-  // advance walk animation only when moving on ground
-  if(p.onGround && moving){
-    walkFrameTimer++;
-    const speed = Math.abs(p.vx) / MAX_SPD_();
-    const ticksPerFrame = Math.max(2, Math.round(WALK_FRAME_SPEED / (0.5 + speed)));
-    if(walkFrameTimer >= ticksPerFrame){
-      walkFrameTimer = 0;
-      walkFrameIdx = (walkFrameIdx + 1) % WALK_FRAMES.length;
-    }
-  } else if(!moving){
-    walkFrameIdx  = 0;
-    walkFrameTimer = 0;
-  }
-
-  // pick sprite
-  let spr;
-  if(wallTimer > 0 && !p.onGround){
-    spr = SPRITES['crouch'];
-  } else if(!p.onGround){
-    spr = moving ? SPRITES['jump_side'] : SPRITES['jump_up'];
-  } else if(moving){
-    spr = WALK_FRAMES[walkFrameIdx];
-  } else {
-    spr = SPRITES['idle'];
-  }
+  // ── DROP character ──
+  updateDropState(p);
+  const frames = DROP_SPRITES[dropState];
+  const spr    = frames ? frames[Math.min(dropFrameIdx, frames.length-1)] : null;
 
   if(spr && spr.complete && spr.naturalWidth > 0){
-    ctx.save();
-    if(flipX){
-      ctx.translate(px + W_, py);
-      ctx.scale(-1, 1);
-      ctx.drawImage(spr, 0, 0, W_, H_);
-    } else {
-      ctx.drawImage(spr, px, py, W_, H_);
-    }
-    ctx.restore();
+    ctx.drawImage(spr, px, py, W_, H_);
   } else {
-    ctx.fillStyle = '#333';
-    ctx.fillRect(px, py, W_, H_);
+    // fallback circle while loading
+    ctx.fillStyle='#0af';
+    ctx.beginPath();
+    ctx.ellipse(px+W_/2, py+H_*0.6, W_*0.38, H_*0.35, 0, 0, Math.PI*2);
+    ctx.fill();
   }
 
   // wall slide sparks
-  if(wallTimer > 0 && !p.onGround){
-    const sparkX = wallSide < 0 ? px : px + W_ - 3;
-    ctx.fillStyle = '#fff';
-    for(let i = 0; i < 3; i++){
-      if(Math.random() > 0.4)
-        ctx.fillRect(sparkX + (wallSide<0?-2:2), py + Math.round(H_*(0.3+Math.random()*0.5)), 2, 2);
+  if(wallTimer>0&&!p.onGround){
+    const sparkX=wallSide<0?px:px+W_-3;
+    ctx.fillStyle='rgba(100,210,255,0.9)';
+    for(let i=0;i<4;i++){
+      if(Math.random()>0.4)
+        ctx.fillRect(sparkX+(wallSide<0?-3:3), py+Math.round(H_*(0.3+Math.random()*0.5)), 3, 3);
     }
   }
 }
@@ -905,6 +953,7 @@ function startGame(){
   isGameOver=false; isWin=false; winPhase=0; winTimer=0; shakeAmt=0;
   gameRunning=true; jumpPressed=false; winBtnListened=false;
   wallTimer=0; wallSide=0; walkFrameIdx=0; walkFrameTimer=0;
+  dropState='idle'; dropFrameIdx=0; dropFrameTimer=0; dropWasGround=true; dropLandTimer=0;
   platCache.clear(); canvas.style.cursor='default';
   bgStars=buildStars(THEMES[0].stars);
   buildPlatforms();
