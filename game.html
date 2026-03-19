@@ -486,26 +486,6 @@ function drawBackground(theme) {
 }
 
 // ═══════════════════════════════════
-//  DROP CHARACTER — drawn on canvas
-//  squash & stretch animations
-// ═══════════════════════════════════
-
-// character selector: 'godwifi' or 'drop'
-let selectedChar = 'godwifi';
-
-// Preload godwifi sprites
-const SPRITES = {};
-['idle','jump_up','jump_side','crouch'].forEach(name => {
-  const img = new Image(); img.src = `sp_${name}.png`; SPRITES[name] = img;
-});
-const WALK_FRAMES = [];
-for(let i=0;i<8;i++){
-  const img = new Image(); img.src = `walk_f${i}.png`; WALK_FRAMES.push(img);
-}
-let walkFrameIdx=0, walkFrameTimer=0;
-const WALK_FRAME_SPEED=5;
-
-// ═══════════════════════════════════
 //  DROP CHARACTER — pregenerated pixel art sprites
 // ═══════════════════════════════════
 
