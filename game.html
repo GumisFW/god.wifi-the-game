@@ -571,88 +571,99 @@ function updateDropState(p){
 function drawPlayer(p) {
   const px = Math.round(p.x);
   const py = Math.round(p.y - cameraY);
-  const W_ = p.w, H_ = p.h;
-  const f  = p.facing;
-  const S  = Math.max(2, Math.floor(W_/12));
+  const W_ = p.w;
+  const u  = Math.floor(W_ / 6); // base unit — everything in multiples of u
 
-  function R(x,y,w,h,c){
-    ctx.fillStyle=c;
-    const dx = f>0 ? px+x : px+(W_-x-w);
-    ctx.fillRect(dx, py+y, w, h);
-  }
+  // Layout (top to bottom, all in px from py):
+  // head:  0        → u*2      (height = u*2, width = u*2, centered)
+  // body:  u*2 + 1  → u*2+u*2  (height = u*2)
+  // legs:  u*4 + 1  → u*4+u*3  (height = u*3)
+  // total height ≈ u*7+2 — player hitbox p.h should match roughly
 
-  const leg = p.onGround ? Math.floor(Date.now()/140)%2 : 0;
+  const cx = px + W_/2;
 
-  // ── LEGS (black) ──
-  if(!p.onGround){
-    R(2,  Math.round(H_*0.68), Math.round(W_*0.28), Math.round(H_*0.32), '#111');
-    R(Math.round(W_*0.5), Math.round(H_*0.68), Math.round(W_*0.28), Math.round(H_*0.32), '#111');
-  } else if(leg===0){
-    R(2,  Math.round(H_*0.65), Math.round(W_*0.28), Math.round(H_*0.35), '#111');
-    R(Math.round(W_*0.48), Math.round(H_*0.70), Math.round(W_*0.28), Math.round(H_*0.30), '#111');
-  } else {
-    R(2,  Math.round(H_*0.70), Math.round(W_*0.28), Math.round(H_*0.30), '#111');
-    R(Math.round(W_*0.48), Math.round(H_*0.65), Math.round(W_*0.28), Math.round(H_*0.35), '#111');
-  }
+  // ── HEAD ──
+  const hS = u*2;
+  const hX = Math.round(cx - hS/2);
+  const hY = py;
 
-  // ── BODY black shirt ──
-  ctx.fillStyle='#111';
-  ctx.fillRect(px+2, py+Math.round(H_*0.32), W_-4, Math.round(H_*0.36));
+  // skin
+  ctx.fillStyle = '#c8956a';
+  ctx.fillRect(hX, hY, hS, hS);
 
-  // FREE WIFI on shirt
-  const fs = Math.max(5, Math.floor(W_*0.18));
+  // hair top
+  ctx.fillStyle = '#5a2e0e';
+  ctx.fillRect(hX - 1, hY, hS + 2, u);
+  // hair sides (sideburns)
+  ctx.fillRect(hX - 1, hY, Math.round(u*0.5), Math.round(hS*0.7));
+  ctx.fillRect(hX + hS - Math.round(u*0.5) + 1, hY, Math.round(u*0.5), Math.round(hS*0.7));
+
+  // glasses
+  const gY = hY + u;
+  const gW = Math.round(u*0.8);
+  const gH = Math.round(u*0.6);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(hX + Math.round(u*0.2), gY, gW, gH);
+  ctx.fillRect(hX + Math.round(u*1.0), gY, gW, gH);
+  // bridge
+  ctx.fillStyle = '#555';
+  ctx.fillRect(hX + Math.round(u*0.2) + gW, gY + Math.round(gH*0.3), Math.round(u*0.2), Math.round(gH*0.4));
+
+  // ── BODY ──
+  const bY = hY + hS + 1;
+  const bW = Math.round(u*2.2);
+  const bH = u*2;
+  const bX = Math.round(cx - bW/2);
+
+  ctx.fillStyle = '#111';
+  ctx.fillRect(bX, bY, bW, bH);
+
+  // FREE WIFI text
+  const fs = Math.max(4, u - 1);
   ctx.font = `bold ${fs}px monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#fff';
-  ctx.fillText('FREE', px+W_/2, py+Math.round(H_*0.42));
-  ctx.fillText('WIFI', px+W_/2, py+Math.round(H_*0.54));
+  ctx.fillText('FREE', cx, bY + bH*0.32);
+  ctx.fillText('WIFI', cx, bY + bH*0.68);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
 
   // ── ARMS ──
-  const armY = Math.round(H_*0.35);
+  const aW = Math.round(u*0.7);
+  const aH = Math.round(u*1.6);
+  const aY = bY + Math.round(u*0.2);
+  ctx.fillStyle = '#c8956a';
   if(!p.onGround){
-    R(0, armY-4, Math.round(W_*0.18), Math.round(H_*0.22), '#c8956a');
-    R(Math.round(W_*0.82), armY-4, Math.round(W_*0.18), Math.round(H_*0.22), '#c8956a');
+    // arms up
+    ctx.fillRect(bX - aW - 1, aY - Math.round(u*0.4), aW, aH);
+    ctx.fillRect(bX + bW + 1,  aY - Math.round(u*0.4), aW, aH);
   } else {
-    R(0, armY, Math.round(W_*0.18), Math.round(H_*0.24), '#c8956a');
-    R(Math.round(W_*0.82), armY, Math.round(W_*0.18), Math.round(H_*0.24), '#c8956a');
+    ctx.fillRect(bX - aW - 1, aY, aW, aH);
+    ctx.fillRect(bX + bW + 1,  aY, aW, aH);
   }
 
-  // ── HEAD ──
-  const hx = Math.round(W_*0.20), hSz = Math.round(W_*0.60);
-  ctx.fillStyle='#c8956a';
-  ctx.fillRect(px+hx, py+Math.round(H_*0.04), hSz, Math.round(H_*0.26));
-
-  // ── HAIR brown ──
-  ctx.fillStyle='#5a2e0e';
-  ctx.fillRect(px+hx-2, py, hSz+4, Math.round(H_*0.12));
-  ctx.fillRect(px+hx-3, py, Math.round(W_*0.12), Math.round(H_*0.20));
-  ctx.fillRect(px+hx+hSz-Math.round(W_*0.09), py, Math.round(W_*0.12), Math.round(H_*0.20));
-
-  // ── SUNGLASSES ──
-  const gy = py + Math.round(H_*0.10);
-  ctx.fillStyle='#000';
-  ctx.fillRect(px+hx, gy, Math.round(hSz*0.42), Math.round(H_*0.09));
-  ctx.fillRect(px+hx+Math.round(hSz*0.58), gy, Math.round(hSz*0.42), Math.round(H_*0.09));
-  ctx.fillStyle='#333';
-  ctx.fillRect(px+hx+Math.round(hSz*0.42), gy+2, Math.round(hSz*0.16), 3);
-  // shine
-  ctx.fillStyle='rgba(255,255,255,0.5)';
-  ctx.fillRect(px+hx+2, gy+1, 3, 3);
-
-  // ── MOUTH ──
-  ctx.fillStyle='#7a3a20';
-  ctx.fillRect(px+hx+Math.round(hSz*0.3), py+Math.round(H_*0.24), Math.round(hSz*0.4), Math.round(H_*0.04));
+  // ── LEGS ──
+  const lW = Math.round(u*0.85);
+  const lH = u*3;
+  const lY = bY + bH + 1;
+  ctx.fillStyle = '#111';
+  if(!p.onGround){
+    // tucked
+    ctx.fillRect(Math.round(cx - lW - 2), lY, lW, Math.round(lH*0.5));
+    ctx.fillRect(Math.round(cx + 2),       lY, lW, Math.round(lH*0.5));
+  } else {
+    ctx.fillRect(Math.round(cx - lW - 2), lY, lW, lH);
+    ctx.fillRect(Math.round(cx + 2),       lY, lW, lH);
+  }
 
   // wall sparks
-  if(wallTimer>0&&!p.onGround){
-    const sparkX=wallSide<0?px:px+W_-3;
-    ctx.fillStyle='#fff';
-    for(let i=0;i<3;i++){
-      if(Math.random()>0.4)
-        ctx.fillRect(sparkX+(wallSide<0?-2:2), py+Math.round(H_*(0.3+Math.random()*0.5)), 2, 2);
+  if(wallTimer > 0 && !p.onGround){
+    const sparkX = wallSide < 0 ? px : px + W_ - 3;
+    ctx.fillStyle = '#fff';
+    for(let i = 0; i < 3; i++){
+      if(Math.random() > 0.4)
+        ctx.fillRect(sparkX + (wallSide<0?-2:2), py + u*2 + Math.round(Math.random()*u*3), 2, 2);
     }
   }
 }
@@ -760,9 +771,11 @@ const ZONE_FLOORS = [100, 125, 150, 175, 200, 225, 226]; // 226 = final platform
 const WIN_FLOOR   = 225;
 
 function createPlayer(){
+  const w = 42;
+  const h = Math.round(w * 7/6); // proportional height
   return {
-    x:W()/2-28, y:H()-160,
-    w:56, h:80,
+    x:W()/2-w/2, y:H()-h-20,
+    w, h,
     vx:0, vy:0,
     onGround:false, facing:1, trail:[],
   };
