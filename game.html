@@ -52,7 +52,7 @@
   <div id="overlay">
     <h1>GOD.WIFI<br>TOWER</h1>
     <div class="sub">← → RUCH &nbsp; SPACJA / ↑ SKOK<br>ŚCIANA + SPACJA = WALL JUMP!<br>LĄDUJ WYSOKO = COMBO!</div>
-    <button id="startBtn" onclick="startGame()">► START ◄</button>
+    <button id="startBtn">► START ◄</button>
   </div>
 </div>
 
@@ -588,32 +588,90 @@ function updateDropState(p){
 }
 
 function drawPlayer(p) {
+  const px = Math.round(p.x);
+  const py = Math.round(p.y - cameraY);
   const W_ = p.w, H_ = p.h;
-  const px  = Math.round(p.x);
-  const py  = Math.round(p.y - cameraY);
+  const f  = p.facing;
+  const S  = Math.max(2, Math.floor(W_/12));
 
-  // ── DROP character ──
-  updateDropState(p);
-  const frames = DROP_SPRITES[dropState];
-  const spr    = frames ? frames[Math.min(dropFrameIdx, frames.length-1)] : null;
-
-  if(spr && spr.complete && spr.naturalWidth > 0){
-    ctx.drawImage(spr, px, py, W_, H_);
-  } else {
-    // fallback circle while loading
-    ctx.fillStyle='#0af';
-    ctx.beginPath();
-    ctx.ellipse(px+W_/2, py+H_*0.6, W_*0.38, H_*0.35, 0, 0, Math.PI*2);
-    ctx.fill();
+  function R(x,y,w,h,c){
+    ctx.fillStyle=c;
+    const dx = f>0 ? px+x : px+(W_-x-w);
+    ctx.fillRect(dx, py+y, w, h);
   }
 
-  // wall slide sparks
+  const leg = p.onGround ? Math.floor(Date.now()/140)%2 : 0;
+
+  // ── LEGS (black) ──
+  if(!p.onGround){
+    R(2,  Math.round(H_*0.68), Math.round(W_*0.28), Math.round(H_*0.32), '#111');
+    R(Math.round(W_*0.5), Math.round(H_*0.68), Math.round(W_*0.28), Math.round(H_*0.32), '#111');
+  } else if(leg===0){
+    R(2,  Math.round(H_*0.65), Math.round(W_*0.28), Math.round(H_*0.35), '#111');
+    R(Math.round(W_*0.48), Math.round(H_*0.70), Math.round(W_*0.28), Math.round(H_*0.30), '#111');
+  } else {
+    R(2,  Math.round(H_*0.70), Math.round(W_*0.28), Math.round(H_*0.30), '#111');
+    R(Math.round(W_*0.48), Math.round(H_*0.65), Math.round(W_*0.28), Math.round(H_*0.35), '#111');
+  }
+
+  // ── BODY black shirt ──
+  ctx.fillStyle='#111';
+  ctx.fillRect(px+2, py+Math.round(H_*0.32), W_-4, Math.round(H_*0.36));
+
+  // FREE WIFI on shirt
+  const fs = Math.max(5, Math.floor(W_*0.18));
+  ctx.font = `bold ${fs}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#fff';
+  ctx.fillText('FREE', px+W_/2, py+Math.round(H_*0.42));
+  ctx.fillText('WIFI', px+W_/2, py+Math.round(H_*0.54));
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  // ── ARMS ──
+  const armY = Math.round(H_*0.35);
+  if(!p.onGround){
+    R(0, armY-4, Math.round(W_*0.18), Math.round(H_*0.22), '#c8956a');
+    R(Math.round(W_*0.82), armY-4, Math.round(W_*0.18), Math.round(H_*0.22), '#c8956a');
+  } else {
+    R(0, armY, Math.round(W_*0.18), Math.round(H_*0.24), '#c8956a');
+    R(Math.round(W_*0.82), armY, Math.round(W_*0.18), Math.round(H_*0.24), '#c8956a');
+  }
+
+  // ── HEAD ──
+  const hx = Math.round(W_*0.20), hSz = Math.round(W_*0.60);
+  ctx.fillStyle='#c8956a';
+  ctx.fillRect(px+hx, py+Math.round(H_*0.04), hSz, Math.round(H_*0.26));
+
+  // ── HAIR brown ──
+  ctx.fillStyle='#5a2e0e';
+  ctx.fillRect(px+hx-2, py, hSz+4, Math.round(H_*0.12));
+  ctx.fillRect(px+hx-3, py, Math.round(W_*0.12), Math.round(H_*0.20));
+  ctx.fillRect(px+hx+hSz-Math.round(W_*0.09), py, Math.round(W_*0.12), Math.round(H_*0.20));
+
+  // ── SUNGLASSES ──
+  const gy = py + Math.round(H_*0.10);
+  ctx.fillStyle='#000';
+  ctx.fillRect(px+hx, gy, Math.round(hSz*0.42), Math.round(H_*0.09));
+  ctx.fillRect(px+hx+Math.round(hSz*0.58), gy, Math.round(hSz*0.42), Math.round(H_*0.09));
+  ctx.fillStyle='#333';
+  ctx.fillRect(px+hx+Math.round(hSz*0.42), gy+2, Math.round(hSz*0.16), 3);
+  // shine
+  ctx.fillStyle='rgba(255,255,255,0.5)';
+  ctx.fillRect(px+hx+2, gy+1, 3, 3);
+
+  // ── MOUTH ──
+  ctx.fillStyle='#7a3a20';
+  ctx.fillRect(px+hx+Math.round(hSz*0.3), py+Math.round(H_*0.24), Math.round(hSz*0.4), Math.round(H_*0.04));
+
+  // wall sparks
   if(wallTimer>0&&!p.onGround){
     const sparkX=wallSide<0?px:px+W_-3;
-    ctx.fillStyle='rgba(100,210,255,0.9)';
-    for(let i=0;i<4;i++){
+    ctx.fillStyle='#fff';
+    for(let i=0;i<3;i++){
       if(Math.random()>0.4)
-        ctx.fillRect(sparkX+(wallSide<0?-3:3), py+Math.round(H_*(0.3+Math.random()*0.5)), 3, 3);
+        ctx.fillRect(sparkX+(wallSide<0?-2:2), py+Math.round(H_*(0.3+Math.random()*0.5)), 2, 2);
     }
   }
 }
@@ -964,6 +1022,8 @@ function startGame(){
 // ═══════════════════════════════════
 //  INPUT
 // ═══════════════════════════════════
+document.getElementById('startBtn').addEventListener('click', startGame);
+
 document.addEventListener('keydown',e=>{
   keys[e.key]=true;
   if((isGameOver||isWin)&&(e.key===' '||e.key==='Enter'))startGame();
