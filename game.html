@@ -868,7 +868,7 @@ function physics(){
           if(pf>floor){
             const diff=pf-floor; floor=pf;
             score+=diff*(1+Math.floor(combo*0.5));
-            combo+=diff; comboTimer=170;
+            combo += diff; if(combo>5) combo=5; comboTimer=170;
             if(score>highScore)highScore=score;
             spawnParticles(p.x+p.w/2,p.y,theme.particleColor,5);
           }
