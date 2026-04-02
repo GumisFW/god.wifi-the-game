@@ -744,16 +744,16 @@ function drawGameOver(){
 // ═══════════════════════════════════
 const isMobileDevice = /Android|iPhone|iPad|iPod|Touch/i.test(navigator.userAgent) || ('ontouchstart' in window);
 
-const GRAVITY_    = ()=> isMobileDevice ? H()*0.0012  : H()*0.00055;
-const JUMP_POWER_ = ()=> isMobileDevice ? -H()*0.022  : -H()*0.018;
-const MOVE_ACC_   = ()=> isMobileDevice ? W()*0.0018  : W()*0.0008;
-const MAX_SPD_    = ()=> isMobileDevice ? W()*0.010   : W()*0.006;
+const GRAVITY_    = ()=> isMobileDevice ? H()*0.00138 : H()*0.00055;
+const JUMP_POWER_ = ()=> isMobileDevice ? -H()*0.0242 : -H()*0.018;
+const MOVE_ACC_   = ()=> isMobileDevice ? W()*0.00207 : W()*0.0008;
+const MAX_SPD_    = ()=> isMobileDevice ? W()*0.0115  : W()*0.006;
 const FRICTION_   = isMobileDevice ? 0.88 : 0.93;
-const MAX_FALL_   = ()=> isMobileDevice ? H()*0.022   : H()*0.014;
+const MAX_FALL_   = ()=> isMobileDevice ? H()*0.0253  : H()*0.014;
 
 // wall jump state
-let wallTimer = 0;      // frames since last touching wall
-let wallSide  = 0;      // -1 left wall, +1 right wall, 0 none
+let wallTimer = 0;
+let wallSide  = 0;
 
 let score,floor,combo,comboTimer,highScore=0;
 let cameraY,themeFlash,lastThemeIdx;
@@ -792,16 +792,20 @@ function physics(){
   if(p.vx>MAX_SPD_())p.vx=MAX_SPD_();
   if(p.vx<-MAX_SPD_())p.vx=-MAX_SPD_();
 
-  // ── WALL DETECTION (screen edges) ──
-  const onLeftWall  = p.x <= 2;
-  const onRightWall = p.x + p.w >= W() - 2;
+  // ── WALL DETECTION ──
+  const wallMargin = Math.max(3, Math.floor(p.w * 0.08));
+  const onLeftWall  = p.x <= wallMargin;
+  const onRightWall = p.x + p.w >= W() - wallMargin;
   const onWall = (onLeftWall || onRightWall) && !p.onGround;
 
   if(onWall) {
     wallSide  = onLeftWall ? -1 : 1;
-    wallTimer = 12; // frames of wall-jump grace
-    // wall slide: slow down fall
+    wallTimer = isMobileDevice ? 12 : 20; // longer grace on desktop
+    // wall slide: slow fall
     if(p.vy > MAX_FALL_()*0.35) p.vy *= 0.82;
+    // clamp to wall so player doesn't wrap
+    if(onLeftWall)  p.x = wallMargin;
+    if(onRightWall) p.x = W() - p.w - wallMargin;
   } else {
     if(wallTimer > 0) wallTimer--;
     else wallSide = 0;
