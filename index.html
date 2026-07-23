@@ -3,168 +3,64 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NEW GAME EVENT</title>
+  <title>god.wifi</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      image-rendering: pixelated;
     }
 
     body {
-      background: #000;
+      background-color: #000000;
       height: 100vh;
       display: flex;
       flex-direction: column;
+      justify-content: center;
       align-items: center;
       overflow: hidden;
-      font-family: 'Press Start 2P', monospace;
+      font-family: Arial, sans-serif;
     }
 
-    /* HEADER */
-    #header {
-      width: 100%;
-      text-align: center;
-      padding: 18px 0 14px;
-      z-index: 10;
-      flex-shrink: 0;
-      background: #000;
-      border-bottom: 4px solid #e00;
+    .spinning-logo {
+      width: 80%;
+      max-width: 400px; 
+      animation: spin 15s linear infinite; 
+      margin-bottom: 40px; 
     }
 
-    #header span {
-      font-family: 'Press Start 2P', monospace;
-      font-size: clamp(1rem, 3.5vw, 2.2rem);
-      color: #e00;
-      letter-spacing: 0.15em;
-      text-shadow:
-        4px 4px 0 #600,
-        0 0 20px rgba(220,0,0,0.8);
-      animation: headerBlink 3s steps(1) infinite;
+    
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
     }
 
-    @keyframes headerBlink {
-      0%, 90%, 100% { opacity: 1; }
-      92% { opacity: 0; }
-      94% { opacity: 1; }
-      96% { opacity: 0; }
-      98% { opacity: 1; }
-    }
-
-    /* IMAGE */
-    #image-wrap {
-      position: relative;
-      width: 100%;
-      flex: 1;
-      overflow: hidden;
-    }
-
-    #image-wrap img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: center;
-      display: block;
-      image-rendering: pixelated;
-    }
-
-    /* pixel scanline overlay */
-    #image-wrap::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 3px,
-        rgba(0,0,0,0.18) 3px,
-        rgba(0,0,0,0.18) 4px
-      );
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    /* BUTTON */
-    #check-btn {
-      position: absolute;
-      bottom: 8%;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 20;
-      font-family: 'Press Start 2P', monospace;
-      font-size: clamp(0.7rem, 2.5vw, 1.3rem);
-      color: #fff;
-      background: #000;
-      border: 4px solid #e00;
-      padding: 16px 40px;
-      cursor: pointer;
-      letter-spacing: 0.2em;
+   
+    .question-mark {
+      color: #ffffff;
+      font-size: 6rem;
       text-decoration: none;
-      text-transform: uppercase;
-      /* pixel shadow */
-      box-shadow:
-        4px 4px 0 #900,
-        8px 8px 0 #600;
-      animation: btnFloat 1.2s steps(2) infinite;
-      transition: none;
-      white-space: nowrap;
+      font-weight: bold;
+      transition: transform 0.3s ease, text-shadow 0.3s ease;
     }
 
-    #check-btn:hover {
-      background: #e00;
-      color: #fff;
-      box-shadow:
-        4px 4px 0 #fff,
-        8px 8px 0 #aaa;
-      animation: none;
-    }
-
-    /* pixel floating animation - steps makes it look 8bit */
-    @keyframes btnFloat {
-      0%   { transform: translateX(-50%) translateY(0px); }
-      50%  { transform: translateX(-50%) translateY(-6px); }
-      100% { transform: translateX(-50%) translateY(0px); }
-    }
-
-    /* arrow blinking under button */
-    #arrow {
-      position: absolute;
-      bottom: 3%;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 20;
-      font-family: 'Press Start 2P', monospace;
-      font-size: clamp(0.5rem, 1.5vw, 0.9rem);
-      color: #e00;
-      animation: arrowBlink 0.8s steps(1) infinite;
-      letter-spacing: 0.3em;
-    }
-
-    @media (max-width: 768px) {
-      #check-btn { bottom: 18%; }
-      #arrow { bottom: 10%; }
+    .question-mark:hover {
+      transform: scale(1.2);
+      text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
     }
   </style>
 </head>
 <body>
 
-  <div id="header">
-    <span>NEW GAME</span>
-  </div>
+  
+  <img src="logo god.wifi biale (1).png" alt="god.wifi logo" class="spinning-logo">
 
-  <div id="image-wrap">
-    <img src="pingwin.png" alt="new event">
 
-    <a id="check-btn"
-       href="game.html">
-      ► START NEW GAME ◄
-    </a>
-
-    <div id="arrow">▼ ▼ ▼</div>
-  </div>
+  <a href="https://goodwifey2027.pl" class="question-mark">?</a>
 
 </body>
 </html>
