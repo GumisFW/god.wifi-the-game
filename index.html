@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>god.wifi</title>
+  
+  
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+
   <style>
     * {
       margin: 0;
@@ -12,7 +16,6 @@
     }
 
     body {
-      /* Zmienione tło na ciemny szary pobrany ze zdjęcia */
       background-color: #0a0a0a;
       height: 100vh;
       display: flex;
@@ -21,24 +24,14 @@
       align-items: center;
       overflow: hidden;
       font-family: Arial, sans-serif;
-      perspective: 1000px; 
     }
 
-    .spinning-logo {
-      width: 80%;
-      max-width: 400px;
-      animation: spin3D 10s linear infinite;
-      /* Zwiększyłem ten margines, żeby zepchnąć znak zapytania mocno w dół */
-      margin-bottom: 120px; 
-    }
-
-    @keyframes spin3D {
-      0% {
-        transform: rotateY(0deg);
-      }
-      100% {
-        transform: rotateY(360deg);
-      }
+    model-viewer {
+      width: 100%;
+      max-width: 500px;
+      height: 350px;
+      margin-bottom: 80px; 
+      --poster-color: transparent;
     }
 
     .question-mark {
@@ -47,6 +40,7 @@
       text-decoration: none;
       font-weight: bold;
       transition: transform 0.3s ease, text-shadow 0.3s ease;
+      z-index: 10;
     }
 
     .question-mark:hover {
@@ -57,7 +51,14 @@
 </head>
 <body>
 
-  <img src="logo god.wifi biale (1).png" alt="god.wifi logo" class="spinning-logo">
+  <model-viewer 
+    src="3dsvg-v1.glb" 
+    auto-rotate 
+    rotation-per-second="30deg"
+    camera-controls
+    disable-zoom
+    shadow-intensity="0">
+  </model-viewer>
 
   <a href="https://goodwifey2027.pl" class="question-mark">?</a>
 
